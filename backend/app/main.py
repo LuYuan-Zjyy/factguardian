@@ -404,7 +404,7 @@ async def detect_conflicts(document_id: str):
                 facts=facts,
                 save_to_redis=True,
                 use_lsh=False,
-                max_pairs=200
+                max_pairs=300
             )
         except Exception as e:
             logger.error(f"冲突检测失败: {str(e)}")
