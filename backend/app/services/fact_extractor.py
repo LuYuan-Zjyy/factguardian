@@ -8,6 +8,7 @@ from typing import List, Dict, Any, Optional
 
 from .llm_client import llm_client
 from .redis_client import redis_client
+from .fact_schema import ensure_schema, enrich_location
 
 logger = logging.getLogger(__name__)
 
@@ -61,11 +62,20 @@ class FactExtractor:
                     section_index=idx
                 )
                 
-                all_facts.extend(facts)
+                # Post-process facts per section: ensure schema, deduplicate
+                processed = []
+                for f in facts:
+                    f = ensure_schema(f)
+                    f = enrich_location(f, section_title, idx)
+                    processed.append(f)
+                
+                # Deduplicate within this section
+                processed = self._deduplicate_facts(processed)
+                all_facts.extend(processed)
                 section_stats.append({
                     "section_index": idx,
                     "section_title": section_title,
-                    "fact_count": len(facts)
+                    "fact_count": len(processed)
                 })
                 
             except Exception as e:
@@ -77,7 +87,8 @@ class FactExtractor:
                     "error": str(e)
                 })
         
-        # 为每个事实生成唯一ID
+        # 去重（基于内容包含关系），并生成唯一ID
+        all_facts = self._deduplicate_facts(all_facts)
         for i, fact in enumerate(all_facts):
             fact["fact_id"] = f"{document_id}_{i}"
         
@@ -110,6 +121,24 @@ class FactExtractor:
         
         return result
     
+    def _deduplicate_facts(self, facts: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Remove fragment facts when their content is contained in a longer one."""
+        kept = []
+        contents = [f.get("content", "") for f in facts]
+        for i, f in enumerate(facts):
+            c = contents[i]
+            is_sub = False
+            for j, other in enumerate(facts):
+                if i == j:
+                    continue
+                oc = contents[j]
+                if c and oc and c != oc and c in oc:
+                    is_sub = True
+                    break
+            if not is_sub:
+                kept.append(f)
+        return kept
+
     def _calculate_stats(self, facts: List[Dict[str, Any]]) -> Dict[str, Any]:
         """计算事实统计信息"""
         type_counts = {}
