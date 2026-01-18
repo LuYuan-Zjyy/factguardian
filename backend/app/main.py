@@ -10,6 +10,7 @@ import logging
 from app.services.parser import DocumentParser
 from app.services.fact_extractor import fact_extractor
 from app.services.conflict_detector import conflict_detector
+from app.services.verifier import FactVerifier
 from app.services.redis_client import redis_client
 from app.services.llm_client import llm_client
 
@@ -25,6 +26,7 @@ app = FastAPI(
 
 # 初始化文档解析器
 parser = DocumentParser()
+verifier = FactVerifier()
 
 
 @app.get("/")
@@ -102,6 +104,19 @@ async def upload_document(file: UploadFile = File(...)):
         
         # 生成文档ID
         document_id = str(uuid.uuid4())[:8]
+
+        # 保存解析结果到 Redis，以便后续步骤复用
+        document_data = {
+            "document_id": document_id,
+            "filename": file.filename,
+            "file_type": result['file_type'],
+            "word_count": result['word_count'],
+            "section_count": len(result['sections']),
+            "metadata": result['metadata'],
+            "sections": result['sections'],
+            "text": result['text']
+        }
+        redis_client.save_document_metadata(document_id, document_data)
         
         # 返回结构化结果
         return {
@@ -178,6 +193,19 @@ async def extract_facts(file: UploadFile = File(...)):
         # 生成文档ID
         document_id = str(uuid.uuid4())[:8]
         
+        # 保存解析结果到 Redis
+        document_data = {
+            "document_id": document_id,
+            "filename": file.filename,
+            "file_type": parse_result['file_type'],
+            "word_count": parse_result['word_count'],
+            "section_count": len(parse_result['sections']),
+            "metadata": parse_result['metadata'],
+            "sections": parse_result['sections'],
+            "text": parse_result['text']
+        }
+        redis_client.save_document_metadata(document_id, document_data)
+        
         logger.info(f"开始提取事实: {file.filename}, 文档ID: {document_id}")
         
         # 提取事实
@@ -218,6 +246,81 @@ async def extract_facts(file: UploadFile = File(...)):
             status_code=500,
             detail=f"服务器错误: {str(e)}"
         )
+
+
+@app.post("/api/documents/{document_id}/extract-facts")
+async def extract_facts_by_id(document_id: str):
+    """
+    根据文档ID提取事实（复用已上传的文档）
+    
+    前提：必须先调用 /api/upload 上传并解析文档，获取 document_id
+    """
+    try:
+        # 检查 LLM 是否可用
+        if not llm_client.is_available():
+            raise HTTPException(
+                status_code=503,
+                detail="LLM 服务不可用，请检查 DEEPSEEK_API_KEY 是否已配置"
+            )
+            
+        # 从 Redis 获取文档元数据（包含内容）
+        doc_data = redis_client.get_document_metadata(document_id)
+        if not doc_data:
+            raise HTTPException(
+                status_code=404,
+                detail=f"文档 {document_id} 不存在或已过期，请先调用 /api/upload 上传文档"
+            )
+            
+        sections = doc_data.get('sections', [])
+        filename = doc_data.get('filename', 'unknown')
+        
+        if not sections:
+            raise HTTPException(
+                status_code=400,
+                detail="文档内容为空或格式错误"
+            )
+            
+        logger.info(f"开始基于ID提取事实: {filename}, 文档ID: {document_id}")
+        
+        # 提取事实
+        try:
+            extraction_result = await fact_extractor.extract_from_document(
+                document_id=document_id,
+                sections=sections,
+                filename=filename,
+                save_to_redis=True
+            )
+        except Exception as e:
+            logger.error(f"事实提取失败: {str(e)}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"事实提取失败: {str(e)}"
+            )
+            
+        logger.info(f"事实提取完成: {filename}, 共 {extraction_result['total_facts']} 条事实")
+        
+        return {
+            "success": True,
+            "document_id": document_id,
+            "filename": filename,
+            "word_count": doc_data.get('word_count', 0),
+            "section_count": len(sections),
+            "total_facts": extraction_result['total_facts'],
+            "facts": extraction_result['facts'],
+            "statistics": extraction_result['statistics'],
+            "section_stats": extraction_result['section_stats'],
+            "saved_to_redis": extraction_result.get('saved_to_redis', False)
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"提取事实时发生错误: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"服务器错误: {str(e)}"
+        )
+
 
 
 @app.get("/api/facts/{document_id}")
@@ -299,7 +402,9 @@ async def detect_conflicts(document_id: str):
             result = await conflict_detector.detect_conflicts(
                 document_id=document_id,
                 facts=facts,
-                save_to_redis=True
+                save_to_redis=True,
+                use_lsh=False,
+                max_pairs=200
             )
         except Exception as e:
             logger.error(f"冲突检测失败: {str(e)}")
@@ -362,6 +467,49 @@ async def get_document_conflicts(document_id: str):
         raise
     except Exception as e:
         logger.error(f"获取冲突失败: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"服务器错误: {str(e)}"
+        )
+
+
+@app.post("/api/documents/{document_id}/verify-facts")
+async def verify_facts(document_id: str):
+    """
+    溯源校验：对文档提取的事实进行联网验证
+    
+    Args:
+        document_id: 文档ID (必须先调用 /extract-facts)
+        
+    Returns:
+        验证结果列表，包含每个事实的支持情况、置信度和搜索依据
+    """
+    try:
+        # 检查是否已提取事实
+        facts_data = redis_client.get_facts(document_id)
+        if not facts_data:
+             raise HTTPException(
+                status_code=404,
+                detail=f"文档 {document_id} 的事实数据不存在，请先使用 /api/documents/{document_id}/extract-facts 提取事实"
+            )
+            
+        logger.info(f"开始溯源校验: {document_id}")
+        
+        # 执行校验
+        results = await verifier.verify_document_facts(document_id)
+        
+        return {
+            "success": True,
+            "document_id": document_id,
+            "verified_count": len(results),
+            "verifications": results,
+            "debug": getattr(verifier, "last_debug", {})
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"溯源校验失败: {str(e)}")
         raise HTTPException(
             status_code=500,
             detail=f"服务器错误: {str(e)}"

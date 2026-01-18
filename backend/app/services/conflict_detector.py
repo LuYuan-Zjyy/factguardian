@@ -65,8 +65,8 @@ class ConflictDetector:
         document_id: str,
         facts: List[Dict[str, Any]] = None,
         save_to_redis: bool = True,
-        use_lsh: bool = True,
-        max_pairs: int = 30
+        use_lsh: bool = False,
+        max_pairs: int = 200
     ) -> Dict[str, Any]:
         """
         检测文档中事实之间的冲突
@@ -101,11 +101,14 @@ class ConflictDetector:
         
         # 使用 LSH 预过滤或传统方法生成事实对
         if use_lsh:
-            # 使用 LSH 快速过滤，只保留相似的事实对
+            # 使用 LSH 预过滤；若结果过少，则回退到全量生成
             fact_pairs = self.lsh.filter_similar_pairs(facts, max_pairs=max_pairs)
             logger.info(f"LSH 过滤后: {len(fact_pairs)} 对事实进行比对 (原始可能 {len(facts) * (len(facts) - 1) // 2} 对)")
+            if not fact_pairs:
+                fact_pairs = self._generate_comparison_pairs(facts, max_pairs=max_pairs)
+                logger.info(f"LSH 未命中，回退生成 {len(fact_pairs)} 对事实进行比对")
         else:
-            # 使用传统方法
+            # 直接全量/按类型生成，确保覆盖潜在矛盾
             fact_pairs = self._generate_comparison_pairs(facts, max_pairs=max_pairs)
             logger.info(f"生成 {len(fact_pairs)} 对事实进行比对")
         

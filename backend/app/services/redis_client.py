@@ -10,15 +10,39 @@ import redis
 
 logger = logging.getLogger(__name__)
 
+# 模块级全局变量：共享内存后备存储（确保所有 RedisClient 实例使用同一个字典）
+_SHARED_MEM_FACTS = {}
+_SHARED_MEM_DOCS = {}
+_SHARED_MEM_CONFLICTS = {}
+
 
 class RedisClient:
-    """Redis 客户端封装"""
+    """Redis 客户端封装（单例模式）"""
+    
+    _instance = None
+    
+    def __new__(cls):
+        """单例模式：确保全局只有一个 RedisClient 实例"""
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+            cls._instance._initialized = False
+        return cls._instance
     
     def __init__(self):
+        # 只初始化一次
+        if self._initialized:
+            return
+        
         self.host = os.getenv("REDIS_HOST", "redis")
         self.port = int(os.getenv("REDIS_PORT", 6379))
         self.db = int(os.getenv("REDIS_DB", 0))
         self._client: Optional[redis.Redis] = None
+        # 内存后备存储引用全局共享变量
+        self._mem_facts = _SHARED_MEM_FACTS
+        self._mem_docs = _SHARED_MEM_DOCS
+        self._mem_conflicts = _SHARED_MEM_CONFLICTS
+        self._initialized = True
+        logger.info("RedisClient 单例初始化完成")
     
     @property
     def client(self) -> redis.Redis:
@@ -63,8 +87,12 @@ class RedisClient:
             logger.info(f"保存事实成功: {document_id}, 共 {len(facts)} 条")
             return True
         except Exception as e:
-            logger.error(f"保存事实失败: {str(e)}")
-            return False
+            logger.error(f"保存事实失败: {str(e)}，改用内存后备存储")
+            logger.info(f"[DEBUG] 保存到内存: document_id={document_id}, facts count={len(facts)}")
+            logger.info(f"[DEBUG] 内存字典 ID: {id(self._mem_facts)}, 内容: {list(self._mem_facts.keys())}")
+            self._mem_facts[document_id] = facts
+            logger.info(f"[DEBUG] 保存后内存字典内容: {list(self._mem_facts.keys())}")
+            return True
     
     def get_facts(self, document_id: str) -> Optional[List[Dict[str, Any]]]:
         """
@@ -81,12 +109,21 @@ class RedisClient:
             value = self.client.get(key)
             
             if value is None:
-                return None
+                # 尝试内存后备
+                logger.info(f"[DEBUG] Redis 返回 None，检查内存。document_id={document_id}")
+                logger.info(f"[DEBUG] 内存字典 ID: {id(self._mem_facts)}, 内容: {list(self._mem_facts.keys())}")
+                result = self._mem_facts.get(document_id)
+                logger.info(f"[DEBUG] 内存查询结果: {result is not None}")
+                return result
             
             return json.loads(value)
         except Exception as e:
-            logger.error(f"获取事实失败: {str(e)}")
-            return None
+            logger.error(f"获取事实失败: {str(e)}，尝试内存后备")
+            logger.info(f"[DEBUG] 异常时检查内存。document_id={document_id}")
+            logger.info(f"[DEBUG] 内存字典 ID: {id(self._mem_facts)}, 内容: {list(self._mem_facts.keys())}")
+            result = self._mem_facts.get(document_id)
+            logger.info(f"[DEBUG] 异常时内存查询结果: {result is not None}")
+            return result
     
     def delete_facts(self, document_id: str) -> bool:
         """删除文档的事实"""
@@ -107,8 +144,9 @@ class RedisClient:
             self.client.expire(key, 86400)
             return True
         except Exception as e:
-            logger.error(f"保存文档元数据失败: {str(e)}")
-            return False
+            logger.error(f"保存文档元数据失败: {str(e)}，改用内存后备存储")
+            self._mem_docs[document_id] = metadata
+            return True
     
     def get_document_metadata(self, document_id: str) -> Optional[Dict[str, Any]]:
         """获取文档元数据"""
@@ -117,12 +155,13 @@ class RedisClient:
             value = self.client.get(key)
             
             if value is None:
-                return None
+                # 尝试内存后备
+                return self._mem_docs.get(document_id)
             
             return json.loads(value)
         except Exception as e:
-            logger.error(f"获取文档元数据失败: {str(e)}")
-            return None
+            logger.error(f"获取文档元数据失败: {str(e)}，尝试内存后备")
+            return self._mem_docs.get(document_id)
     
     def list_documents(self) -> List[str]:
         """列出所有文档ID"""
@@ -155,8 +194,9 @@ class RedisClient:
             logger.info(f"保存冲突成功: {document_id}, 共 {len(conflicts)} 条")
             return True
         except Exception as e:
-            logger.error(f"保存冲突失败: {str(e)}")
-            return False
+            logger.error(f"保存冲突失败: {str(e)}，改用内存后备存储")
+            self._mem_conflicts[document_id] = conflicts
+            return True
     
     def get_conflicts(self, document_id: str) -> Optional[List[Dict[str, Any]]]:
         """
@@ -173,12 +213,13 @@ class RedisClient:
             value = self.client.get(key)
             
             if value is None:
-                return None
+                # 尝试内存后备
+                return self._mem_conflicts.get(document_id)
             
             return json.loads(value)
         except Exception as e:
-            logger.error(f"获取冲突失败: {str(e)}")
-            return None
+            logger.error(f"获取冲突失败: {str(e)}，尝试内存后备")
+            return self._mem_conflicts.get(document_id)
     
     def delete_conflicts(self, document_id: str) -> bool:
         """删除文档的冲突"""
