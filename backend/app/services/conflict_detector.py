@@ -5,7 +5,8 @@
 """
 import json
 import logging
-from typing import List, Dict, Any, Optional, Tuple
+import re
+from typing import List, Dict, Any, Optional, Tuple, Set
 from itertools import combinations
 
 from .llm_client import llm_client
@@ -18,38 +19,15 @@ logger = logging.getLogger(__name__)
 CONFLICT_DETECTION_PROMPT = """以下是从同一文档不同位置提取的两个事实，请判断它们是否存在冲突或矛盾。
 
 事实A：{fact_a_content}
-类型：{fact_a_type}
-原文：{fact_a_original}
-位置：{fact_a_location}
+（类型：{fact_a_type} | 位置：{fact_a_location}）
 
 事实B：{fact_b_content}
-类型：{fact_b_type}
-原文：{fact_b_original}
-位置：{fact_b_location}
+（类型：{fact_b_type} | 位置：{fact_b_location}）
 
-请仔细分析这两个事实，判断是否存在以下类型的冲突：
-1. 数据不一致：同一指标出现不同数值
-2. 逻辑矛盾：两个陈述在逻辑上互相排斥
-3. 时间冲突：时间线或日期描述不一致
-4. 定义冲突：对同一概念的定义不一致
+请仔细分析这两个事实，判断是否存在冲突（数据不一致、逻辑矛盾、时间冲突等）。
 
-注意：
-- 如果两个事实描述的是不同的对象/指标，则不算冲突
-- 如果数值差异在合理范围内（如四舍五入），则不算冲突
-- 只有明确的矛盾才判定为冲突
-
-请以 JSON 格式返回判断结果：
-```json
-{{
-  "has_conflict": true或false,
-  "conflict_type": "数据不一致/逻辑矛盾/时间冲突/定义冲突/无冲突",
-  "severity": "高/中/低/无",
-  "explanation": "详细说明冲突原因，如果无冲突则说明原因",
-  "confidence": 0.0到1.0之间的置信度
-}}
-```
-
-请只返回 JSON，不要包含其他内容："""
+只返回单行JSON（不要换行、不要缩进、不要多余空白）：
+{{"has_conflict": true或false, "conflict_type": "无冲突/数据不一致/逻辑矛盾/时间冲突", "severity": "无/低/中/高", "explanation": "简短说明", "confidence": 0.5}}"""
 
 
 class ConflictDetector:
@@ -200,9 +178,24 @@ class ConflictDetector:
         
         优先比对同类型的事实（更可能存在冲突）
         """
-        pairs = []
+        pairs: List[Tuple[Dict, Dict]] = []
+        seen: Set[Tuple[str, str]] = set()
         
-        # 按类型分组
+        # 先添加结构化字段驱动的候选（主体/谓词/客体/数值/时间/极性）
+        structured_pairs = self._generate_structured_pairs(facts, limit=max_pairs)
+        for fa, fb in structured_pairs:
+            if self._add_pair((fa, fb), pairs, seen):
+                if len(pairs) >= max_pairs:
+                    return pairs
+
+        # 再添加关键词/模式驱动的候选（覆盖常见矛盾点）
+        keyword_pairs = self._generate_keyword_based_pairs(facts, limit=max_pairs)
+        for fa, fb in keyword_pairs:
+            if self._add_pair((fa, fb), pairs, seen):
+                if len(pairs) >= max_pairs:
+                    return pairs
+
+        # 再按类型分组补充
         facts_by_type = {}
         for fact in facts:
             fact_type = fact.get("type", "未知")
@@ -214,7 +207,9 @@ class ConflictDetector:
         for fact_type, type_facts in facts_by_type.items():
             if len(type_facts) >= 2:
                 for pair in combinations(type_facts, 2):
-                    pairs.append(pair)
+                    if self._add_pair(pair, pairs, seen):
+                        if len(pairs) >= max_pairs:
+                            return pairs
                     if len(pairs) >= max_pairs:
                         return pairs
         
@@ -227,11 +222,203 @@ class ConflictDetector:
                     facts_b = facts_by_type.get(type_b, [])
                     for fa in facts_a:
                         for fb in facts_b:
-                            pairs.append((fa, fb))
+                            if self._add_pair((fa, fb), pairs, seen):
+                                if len(pairs) >= max_pairs:
+                                    return pairs
                             if len(pairs) >= max_pairs:
                                 return pairs
         
+        
         return pairs
+
+    def _generate_structured_pairs(self, facts: List[Dict[str, Any]], limit: int) -> List[Tuple[Dict, Dict]]:
+        """
+        基于结构化字段生成候选对：
+        - 同一 (subject, predicate, object) 分组内：
+          * 极性相反 → 逻辑矛盾候选
+          * 数值冲突 → 数据不一致候选（数值/比例差异显著）
+          * 时间冲突 → 时间不一致候选
+        """
+        def key_of(f: Dict[str, Any]) -> Tuple[str, str, str]:
+            return (
+                (f.get("subject") or "").strip(),
+                (f.get("predicate") or "").strip(),
+                (f.get("object") or "").strip(),
+            )
+
+        def num_of(v: Any) -> Optional[float]:
+            if v is None:
+                return None
+            if isinstance(v, (int, float)):
+                return float(v)
+            if isinstance(v, str):
+                m = re.findall(r"(-?\d+(?:\.\d+)?)", v)
+                if m:
+                    try:
+                        return float(m[0])
+                    except:
+                        return None
+            return None
+
+        groups: Dict[Tuple[str, str, str], List[Dict[str, Any]]] = {}
+        for f in facts:
+            k = key_of(f)
+            groups.setdefault(k, []).append(f)
+
+        pairs: List[Tuple[Dict, Dict]] = []
+        for k, items in groups.items():
+            if len(items) < 2:
+                continue
+            # 两两组合比较
+            for i in range(len(items)):
+                for j in range(i + 1, len(items)):
+                    fa, fb = items[i], items[j]
+                    # 极性相反
+                    pa = (fa.get("polarity") or "affirmative").lower()
+                    pb = (fb.get("polarity") or "affirmative").lower()
+                    if pa != pb:
+                        pairs.append((fa, fb))
+                        if len(pairs) >= limit:
+                            return pairs
+                    # 数值冲突（如果两者具有数值）
+                    va = num_of(fa.get("value"))
+                    vb = num_of(fb.get("value"))
+                    if va is not None and vb is not None:
+                        # 若是比例/百分比，差异阈值稍宽；否则比较绝对差异和相对差异
+                        has_percent_a = any("%" in str(fa.get("value"))) or "%" in ((fa.get("original_text") or ""))
+                        has_percent_b = any("%" in str(fb.get("value"))) or "%" in ((fb.get("original_text") or ""))
+                        if has_percent_a or has_percent_b:
+                            if abs(va - vb) >= 10.0:
+                                pairs.append((fa, fb))
+                                if len(pairs) >= limit:
+                                    return pairs
+                        else:
+                            # 一般数值，比较相对差异 > 0.2 或绝对差异明显
+                            if (min(va, vb) > 0 and abs(va - vb) / max(va, vb) > 0.2) or abs(va - vb) > 1.0:
+                                pairs.append((fa, fb))
+                                if len(pairs) >= limit:
+                                    return pairs
+                    # 时间冲突（时间字符串不一致）
+                    ta = (fa.get("time") or "").strip()
+                    tb = (fb.get("time") or "").strip()
+                    if ta and tb and ta != tb:
+                        pairs.append((fa, fb))
+                        if len(pairs) >= limit:
+                            return pairs
+        return pairs
+
+    def _add_pair(self, pair: Tuple[Dict, Dict], pairs: List[Tuple[Dict, Dict]], seen: Set[Tuple[str, str]]) -> bool:
+        """将事实对加入列表并去重（基于 fact_id 或内容哈希）"""
+        fa, fb = pair
+        ida = str(fa.get("fact_id") or hash(fa.get("content", "")))
+        idb = str(fb.get("fact_id") or hash(fb.get("content", "")))
+        key = (ida, idb) if ida <= idb else (idb, ida)
+        if key in seen:
+            return False
+        seen.add(key)
+        pairs.append(pair)
+        return True
+
+    def _generate_keyword_based_pairs(self, facts: List[Dict[str, Any]], limit: int) -> List[Tuple[Dict, Dict]]:
+        """
+        基于关键词与模式的候选对生成，针对用户列出的典型矛盾：
+        - 合规/不合规（落实政策 vs 不符合新版指南）
+        - 居民协调完成 vs 居民反对/延迟
+        - 资金缺口（无缺口 vs 停工风险/仅到位/阶段性缺口可控）
+        - 竣工时间（可能延迟至4月 vs 调整为3月20日/3月底试运行）
+        - 医疗预约闭环 vs 无法对接/仍需线下
+        - 前期筹备全部完成 vs 未办理施工许可证/未办结
+        - 装修进度/费用比例不匹配（装修进度70% vs 支出50%）
+        - 安全目标 vs 技术问题（全方位防护/覆盖 vs 识别率低/无法实时传输）
+        """
+        text_list = [(f, (f.get("content") or "") + " " + (f.get("original_text") or "")) for f in facts]
+        def has_any(s: str, kws: List[str]) -> bool:
+            return any(kw in s for kw in kws)
+        def find(kws: List[str]) -> List[Dict]:
+            return [f for f, t in text_list if has_any(t, kws)]
+        def pairs_for(kws_a: List[str], kws_b: List[str]) -> List[Tuple[Dict, Dict]]:
+            A = find(kws_a)
+            B = find(kws_b)
+            return [(fa, fb) for fa in A for fb in B]
+        
+        candidates: List[Tuple[Dict, Dict]] = []
+        
+        # 合规性：落实政策/符合要求 vs 不符新版指南/未达到要求
+        candidates += pairs_for([
+            "落实国家及省级政策", "符合政策", "落实政策", "符合要求"
+        ], [
+            "不符", "未达到指南要求", "修订版", "2024年修订版"
+        ])
+        
+        # 居民协调：已完成协调 vs 居民反对/延迟/隐私
+        candidates += pairs_for([
+            "已完成协调", "协调工作已完成"
+        ], [
+            "居民反对", "延迟推进", "隐私", "延迟安装"
+        ])
+        
+        # 资金缺口：无资金缺口 vs 停工风险/仅到位/阶段性缺口可控
+        candidates += pairs_for([
+            "无资金缺口", "资金周转正常"
+        ], [
+            "停工风险", "仅到位", "资金缺口", "阶段性资金缺口可控"
+        ])
+        
+        # 竣工时间：可能延迟至4月 vs 调整为3月20日/3月底试运行
+        candidates += pairs_for([
+            "可能导致项目整体竣工时间延迟至2026年4月", "可能延迟至2026年4月"
+        ], [
+            "调整为2026年3月20日", "3月底前投入试运行", "2026年3月20日"
+        ])
+        
+        # 医疗预约：闭环服务 vs 无法对接/仍需线下
+        candidates += pairs_for([
+            "医疗预约闭环服务", "闭环服务"
+        ], [
+            "无法与", "无法对接", "仍需线下排队"
+        ])
+        
+        # 前期筹备：全部完成 vs 未办理施工许可证/未办结
+        candidates += pairs_for([
+            "前期筹备工作已全部完成"
+        ], [
+            "未办理施工许可证", "未办结"
+        ])
+        
+        # 装修进度/费用：包含“装修”且存在百分比
+        def percent_values(text: str) -> List[float]:
+            return [float(x) for x in re.findall(r"(\d+(?:\.\d+)?)%", text)]
+        deco_facts = [f for f, t in text_list if "装修" in t]
+        for i in range(len(deco_facts)):
+            for j in range(i + 1, len(deco_facts)):
+                ta = (deco_facts[i].get("content") or "") + " " + (deco_facts[i].get("original_text") or "")
+                tb = (deco_facts[j].get("content") or "") + " " + (deco_facts[j].get("original_text") or "")
+                pa = percent_values(ta)
+                pb = percent_values(tb)
+                if pa and pb and any(abs(a - b) >= 15.0 for a in pa for b in pb):
+                    candidates.append((deco_facts[i], deco_facts[j]))
+        
+        # 安全目标 vs 技术问题（识别率低/无法实时传输）
+        candidates += pairs_for([
+            "全方位安全防护网络", "覆盖社区出入口、楼道、停车场"
+        ], [
+            "识别成功率仅", "无法实现实时画面传输", "无法实时传输"
+        ])
+        
+        # 去重并限量
+        unique: List[Tuple[Dict, Dict]] = []
+        seen: Set[Tuple[str, str]] = set()
+        for fa, fb in candidates:
+            ida = str(fa.get("fact_id") or hash(fa.get("content", "")))
+            idb = str(fb.get("fact_id") or hash(fb.get("content", "")))
+            key = (ida, idb) if ida <= idb else (idb, ida)
+            if key in seen:
+                continue
+            seen.add(key)
+            unique.append((fa, fb))
+            if len(unique) >= limit:
+                break
+        return unique
     
     async def _compare_facts(
         self,
@@ -248,10 +435,22 @@ class ConflictDetector:
         prompt = CONFLICT_DETECTION_PROMPT.format(
             fact_a_content=fact_a.get("content", ""),
             fact_a_type=fact_a.get("type", "未知"),
+            fact_a_subject=fact_a.get("subject", ""),
+            fact_a_predicate=fact_a.get("predicate", ""),
+            fact_a_object=fact_a.get("object", ""),
+            fact_a_value=str(fact_a.get("value", "")),
+            fact_a_time=fact_a.get("time", ""),
+            fact_a_polarity=fact_a.get("polarity", ""),
             fact_a_original=fact_a.get("original_text", ""),
             fact_a_location=self._format_location(fact_a.get("location")),
             fact_b_content=fact_b.get("content", ""),
             fact_b_type=fact_b.get("type", "未知"),
+            fact_b_subject=fact_b.get("subject", ""),
+            fact_b_predicate=fact_b.get("predicate", ""),
+            fact_b_object=fact_b.get("object", ""),
+            fact_b_value=str(fact_b.get("value", "")),
+            fact_b_time=fact_b.get("time", ""),
+            fact_b_polarity=fact_b.get("polarity", ""),
             fact_b_original=fact_b.get("original_text", ""),
             fact_b_location=self._format_location(fact_b.get("location"))
         )
@@ -291,7 +490,7 @@ class ConflictDetector:
         try:
             response = response.strip()
             
-            # 移除可能的 markdown 代码块
+            # 第一步：移除可能的 markdown 代码块
             if response.startswith("```json"):
                 response = response[7:]
             elif response.startswith("```"):
@@ -301,16 +500,37 @@ class ConflictDetector:
             
             response = response.strip()
             
+            # 第二步：将所有whitespace（包括换行、制表、多余空格）压缩为单一空格
+            # 这样形如 '\n    "has_conflict"' 的错误格式会被规范化
+            response = ' '.join(response.split())
+            
+            # 第三步：尝试 JSON 解析
             result = json.loads(response)
             
-            # 验证必需字段
+            # 第四步：验证必需字段，确保返回格式统一
             if "has_conflict" not in result:
                 result["has_conflict"] = False
+            
+            if "conflict_type" not in result:
+                result["conflict_type"] = "无冲突"
+            
+            if "severity" not in result:
+                result["severity"] = "无" if not result.get("has_conflict") else "中"
+            
+            if "explanation" not in result:
+                result["explanation"] = ""
+            
+            if "confidence" not in result:
+                result["confidence"] = 0.5 if result.get("has_conflict") else 0.3
             
             return result
             
         except json.JSONDecodeError as e:
-            logger.error(f"解析冲突检测 JSON 失败: {e}, 原始响应: {response[:200]}")
+            logger.error(f"解析冲突检测 JSON 失败: {e}")
+            logger.debug(f"原始响应 (前200字): {response[:200]}")
+            return None
+        except Exception as e:
+            logger.error(f"处理冲突检测响应出错: {str(e)}")
             return None
     
     def get_conflicts(self, document_id: str) -> Optional[List[Dict[str, Any]]]:

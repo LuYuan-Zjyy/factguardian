@@ -10,6 +10,7 @@ from typing import List, Dict, Any, Optional
 from app.services.llm_client import LLMClient
 from app.services.search_client import SearchClient
 from app.services.redis_client import RedisClient
+from app.services.prompt_tuner import prompt_tuner
 
 logger = logging.getLogger(__name__)
 
@@ -27,21 +28,24 @@ VERIFICATION_PROMPT_TEMPLATE = """
 
 请评估该事实的真实性。
 
-请严格按照以下 JSON 格式输出：
+请严格按照以下 JSON 格式输出（注意：JSON必须完整有效，不要包含任何其他文本）：
+```json
 {{
-  "is_supported": true/false,
-  "confidence_level": "High/Medium/Low",
+  "is_supported": true或false,
+  "confidence_level": "High"或"Medium"或"Low",
   "assessment": "简短的评估说明，解释为什么支持或不支持",
   "correction": "如果事实错误，请提供正确的建议值，否则留空"
 }}
-"""
+```
 
+请只返回JSON，不要包含其他内容。"""
 QUERY_GENERATION_PROMPT = """
 我需要通过搜索引擎验证以下事实。请为这个事实生成 1-2 个最有效的搜索关键词或查询语句。
 只返回查询语句，每行一个，不要有其他废话。
 
 事实：{fact_content}
 上下文：{context}
+结构化：主体={subject}，谓词={predicate}，客体={object}，时间={time}
 """
 
 class FactVerifier:
@@ -78,9 +82,9 @@ class FactVerifier:
                 if 0 <= idx < len(all_facts):
                     facts_to_verify.append((idx, all_facts[idx]))
         else:
-            # Automatic mode: Only verify PUBLIC facts that can be externally verified
-            # Skip internal data (company revenue, project dates, etc.)
-            MAX_AUTO_VERIFY = 50
+            # Automatic mode: Verify more PUBLIC facts for better coverage
+            # Increased limit from 50 to 200 to cover more facts
+            MAX_AUTO_VERIFY = 200
             
             for i, fact in enumerate(all_facts):
                 if i >= MAX_AUTO_VERIFY: 
@@ -94,7 +98,6 @@ class FactVerifier:
                     continue
                     
                 facts_to_verify.append((i, fact))
-                        
         self.last_debug["selected_count"] = len(facts_to_verify)
         self.last_debug["selected_indices"] = [f[0] for f in facts_to_verify]
         
@@ -152,15 +155,24 @@ class FactVerifier:
                 "search_snippets": ["Mock Search Result"]
             }
 
-        # Step 1: Generate Search Query
-        query_prompt = QUERY_GENERATION_PROMPT.format(fact_content=content, context=context)
-        # Use a simple user message
-        messages = [{"role": "user", "content": query_prompt}]
-        query_response = await self.llm_client.chat(messages)
+        # Step 1: Build Search Query using structured fields first
+        structured_queries = prompt_tuner.build_verification_queries(fact)
+        search_query = structured_queries[0] if structured_queries else None
         
-        # Parse query (take the first line)
-        queries = [q.strip() for q in query_response.strip().split('\n') if q.strip()]
-        search_query = queries[0] if queries else content
+        # If no good structured query, fall back to LLM query generation
+        if not search_query:
+            query_prompt = QUERY_GENERATION_PROMPT.format(
+                fact_content=content,
+                context=context,
+                subject=(fact.get("subject") or ""),
+                predicate=(fact.get("predicate") or ""),
+                object=(fact.get("object") or ""),
+                time=(fact.get("time") or "")
+            )
+            messages = [{"role": "user", "content": query_prompt}]
+            query_response = await self.llm_client.chat(messages)
+            queries = [q.strip() for q in query_response.strip().split('\n') if q.strip()]
+            search_query = queries[0] if queries else content
         
         logger.info(f"Generated search query: {search_query}")
         
@@ -168,7 +180,7 @@ class FactVerifier:
         search_results = await self.search_client.search(search_query, max_results=3)
         search_text = "\n\n".join(search_results)
         
-        # Step 3: Verify with LLM
+        # Step 3: Verify with LLM (simplified prompt)
         verify_prompt = VERIFICATION_PROMPT_TEMPLATE.format(
             claim=content,
             context=context,
@@ -177,23 +189,35 @@ class FactVerifier:
         
         messages = [{"role": "user", "content": verify_prompt}]
         raw_result = await self.llm_client.chat(messages)
+        logger.debug(f"Raw verification result: {raw_result[:300]}")
         
-        # Step 4: Parse JSON result
+        # Step 4: Parse JSON result with robust error handling
         try:
-            # Clean up potential markdown code blocks
+            # Clean up potential markdown code blocks and whitespace
             clean_result = raw_result.strip()
             if clean_result.startswith("```json"):
                 clean_result = clean_result[7:]
+            elif clean_result.startswith("```"):
+                clean_result = clean_result[3:]
             if clean_result.endswith("```"):
                 clean_result = clean_result[:-3]
             
+            clean_result = clean_result.strip()
+            logger.debug(f"Cleaned result: {clean_result[:300]}")
+            
             parsed_result = json.loads(clean_result)
-        except json.JSONDecodeError:
-            logger.error(f"Failed to parse verification result: {raw_result}")
+            
+            # Validate required fields
+            if "is_supported" not in parsed_result:
+                raise ValueError("Missing 'is_supported' field")
+            
+        except (json.JSONDecodeError, ValueError) as e:
+            logger.error(f"Failed to parse verification result: {e}. Raw: {raw_result[:500]}")
+            # Return default result on parse error
             parsed_result = {
-                "is_supported": False,
+                "is_supported": None,
                 "confidence_level": "Low",
-                "assessment": "无法解析模型输出",
+                "assessment": "模型输出格式错误，无法解析。请检查LLM的返回格式。",
                 "correction": ""
             }
             
