@@ -1,0 +1,36 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: factguardian-backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+    env_file:
+      - backend/.env
+    environment:
+      - PYTHONUNBUFFERED=1
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_DB=0
+      - DOUBAO_API_KEY=a2e14d6f-f2dc-4292-9c64-93365277c658
+      - DOUBAO_ENDPOINT=https://ark.cn-beijing.volces.com/api/v3
+      - DEEPSEEK_API_KEY=sk-a02274399f7b46288c0ee5ea0e2d750e
+    depends_on:
+      - redis
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: factguardian-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+
+volumes:
+  redis-data:
+
