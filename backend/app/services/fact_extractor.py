@@ -2,6 +2,7 @@
 事实提取服务
 整合 LLM 和 Redis，提供完整的事实提取流程
 """
+import asyncio
 import uuid
 import logging
 from typing import List, Dict, Any, Optional
@@ -45,26 +46,47 @@ class FactExtractor:
         all_facts = []
         section_stats = []
         
-        for idx, section in enumerate(sections):
-            section_title = section.get("title", "")
-            section_content = section.get("content", "")
+        # 并行化优化：批量处理章节
+        batch_size = 5  # 每批并行处理5个章节
+        
+        for batch_start in range(0, len(sections), batch_size):
+            batch = sections[batch_start:batch_start + batch_size]
             
-            if not section_content or len(section_content) < 20:
-                continue
-            
-            logger.info(f"正在提取章节 {idx + 1}/{len(sections)}: {section_title[:30]}...")
-            
-            try:
-                # 提取事实
-                facts = await self.llm.extract_facts(
+            # 并行提取事实
+            tasks = []
+            for idx_in_batch, section in enumerate(batch):
+                idx = batch_start + idx_in_batch
+                section_title = section.get("title", "")
+                section_content = section.get("content", "")
+                
+                if not section_content or len(section_content) < 20:
+                    continue
+                
+                logger.info(f"正在提取章节 {idx + 1}/{len(sections)}: {section_title[:30]}...")
+                tasks.append((idx, section_title, self.llm.extract_facts(
                     text=section_content,
                     section_title=section_title,
                     section_index=idx
-                )
+                )))
+            
+            # 等待批次完成
+            results = await asyncio.gather(*[task for _, _, task in tasks], return_exceptions=True)
+            
+            # 处理结果
+            for (idx, section_title, _), result in zip(tasks, results):
+                if isinstance(result, Exception):
+                    logger.error(f"章节 {idx} 提取失败: {str(result)}")
+                    section_stats.append({
+                        "section_index": idx,
+                        "section_title": section_title,
+                        "fact_count": 0,
+                        "error": str(result)
+                    })
+                    continue
                 
-                # Post-process facts per section: ensure schema, deduplicate
+                # Post-process facts per section
                 processed = []
-                for f in facts:
+                for f in result:
                     f = ensure_schema(f)
                     f = enrich_location(f, section_title, idx)
                     processed.append(f)
@@ -76,15 +98,6 @@ class FactExtractor:
                     "section_index": idx,
                     "section_title": section_title,
                     "fact_count": len(processed)
-                })
-                
-            except Exception as e:
-                logger.error(f"章节 {idx} 提取失败: {str(e)}")
-                section_stats.append({
-                    "section_index": idx,
-                    "section_title": section_title,
-                    "fact_count": 0,
-                    "error": str(e)
                 })
         
         # 去重（基于内容包含关系），并生成唯一ID

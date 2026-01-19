@@ -120,13 +120,42 @@ class FactVerifier:
                     "skip_reason": "internal_data"
                 })
         
-        # Then verify public facts
-        for idx, fact in facts_to_verify:
-            verification_result = await self._verify_single_fact(fact)
-            verification_result["fact_index"] = idx
-            verification_result["original_fact"] = fact
-            verification_result["skipped"] = False
-            results.append(verification_result)
+        # Then verify public facts in parallel batches
+        batch_size = 10  # 每批并行处理10个事实
+        for i in range(0, len(facts_to_verify), batch_size):
+            batch = facts_to_verify[i:i + batch_size]
+            
+            # Create verification tasks for this batch
+            tasks = []
+            for idx, fact in batch:
+                task = self._verify_single_fact(fact)
+                tasks.append((idx, fact, task))
+            
+            # Execute batch in parallel
+            batch_results = await asyncio.gather(
+                *[task for _, _, task in tasks],
+                return_exceptions=True
+            )
+            
+            # Process results
+            for (idx, fact, _), result in zip(tasks, batch_results):
+                if isinstance(result, Exception):
+                    logger.error(f"Verification failed for fact {idx}: {str(result)}")
+                    # Add error result
+                    results.append({
+                        "fact_index": idx,
+                        "original_fact": fact,
+                        "is_supported": None,
+                        "confidence_level": "Low",
+                        "assessment": f"验证过程出错: {str(result)}",
+                        "correction": "",
+                        "skipped": False
+                    })
+                else:
+                    result["fact_index"] = idx
+                    result["original_fact"] = fact
+                    result["skipped"] = False
+                    results.append(result)
 
         # 3. Store verification results in Redis (optional, but good for persistence)
         # We could append to a "verifications:{doc_id}" key
