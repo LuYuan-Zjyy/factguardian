@@ -3,6 +3,7 @@
 检测文档内部事实之间的矛盾和冲突
 使用 LSH (局部敏感哈希) 快速过滤不相似的事实对，提高效率
 """
+import asyncio
 import json
 import logging
 import re
@@ -44,7 +45,7 @@ class ConflictDetector:
         facts: List[Dict[str, Any]] = None,
         save_to_redis: bool = True,
         use_lsh: bool = False,
-        max_pairs: int = 200
+        max_pairs: int = 300
     ) -> Dict[str, Any]:
         """
         检测文档中事实之间的冲突
@@ -53,8 +54,8 @@ class ConflictDetector:
             document_id: 文档ID
             facts: 事实列表（如果为空，从 Redis 获取）
             save_to_redis: 是否保存结果到 Redis
-            use_lsh: 是否使用 LSH 预过滤（提高效率）
-            max_pairs: 最大比对对数
+            use_lsh: 是否使用 LSH 预过滤（默认False，因LSH会漏掉数值/时间冲突）
+            max_pairs: 最大比对对数（默认300，结构化字段智能过滤后的高风险对）
         
         Returns:
             冲突检测结果
@@ -94,11 +95,24 @@ class ConflictDetector:
         conflicts = []
         comparison_count = 0
         
-        for fact_a, fact_b in fact_pairs:
-            comparison_count += 1
+        # 并行化优化：批量处理 LLM 调用
+        batch_size = 10  # 每批并行处理10对
+        
+        for i in range(0, len(fact_pairs), batch_size):
+            batch = fact_pairs[i:i + batch_size]
             
-            try:
-                result = await self._compare_facts(fact_a, fact_b)
+            # 并行调用 LLM 比对
+            tasks = [self._compare_facts(fa, fb) for fa, fb in batch]
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+            
+            # 处理结果
+            for (fact_a, fact_b), result in zip(batch, results):
+                comparison_count += 1
+                
+                # 处理异常
+                if isinstance(result, Exception):
+                    logger.error(f"比对事实时出错: {str(result)}")
+                    continue
                 
                 if result and result.get("has_conflict"):
                     conflict = {
@@ -124,10 +138,6 @@ class ConflictDetector:
                     }
                     conflicts.append(conflict)
                     logger.info(f"发现冲突: {conflict['conflict_type']} - {conflict['explanation'][:50]}")
-                    
-            except Exception as e:
-                logger.error(f"比对事实时出错: {str(e)}")
-                continue
         
         # 按严重程度排序
         severity_order = {"高": 0, "中": 1, "低": 2, "无": 3}
@@ -285,8 +295,8 @@ class ConflictDetector:
                     vb = num_of(fb.get("value"))
                     if va is not None and vb is not None:
                         # 若是比例/百分比，差异阈值稍宽；否则比较绝对差异和相对差异
-                        has_percent_a = any("%" in str(fa.get("value"))) or "%" in ((fa.get("original_text") or ""))
-                        has_percent_b = any("%" in str(fb.get("value"))) or "%" in ((fb.get("original_text") or ""))
+                        has_percent_a = "%" in str(fa.get("value")) or "%" in (fa.get("original_text") or "")
+                        has_percent_b = "%" in str(fb.get("value")) or "%" in (fb.get("original_text") or "")
                         if has_percent_a or has_percent_b:
                             if abs(va - vb) >= 10.0:
                                 pairs.append((fa, fb))

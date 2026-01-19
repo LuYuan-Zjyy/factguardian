@@ -398,6 +398,11 @@ async def detect_conflicts(document_id: str):
         logger.info(f"开始冲突检测: 文档 {document_id}, 共 {len(facts)} 条事实")
         
         # 执行冲突检测
+        # 优化策略：
+        # - 禁用 LSH（LSH基于文本相似度，会漏掉数值/时间冲突）
+        # - 使用结构化字段驱动的智能比对（主体/谓词/数值/时间/极性）
+        # - 关键词模式匹配（覆盖典型矛盾场景）
+        # - max_pairs=300 保证准确率，速度约15-20秒
         try:
             result = await conflict_detector.detect_conflicts(
                 document_id=document_id,
@@ -474,12 +479,13 @@ async def get_document_conflicts(document_id: str):
 
 
 @app.post("/api/documents/{document_id}/verify-facts")
-async def verify_facts(document_id: str):
+async def verify_facts(document_id: str, only_errors: bool = False):
     """
     溯源校验：对文档提取的事实进行联网验证
     
     Args:
         document_id: 文档ID (必须先调用 /extract-facts)
+        only_errors: 是否只返回验证失败的事实（默认 False，返回全部）
         
     Returns:
         验证结果列表，包含每个事实的支持情况、置信度和搜索依据
@@ -498,11 +504,27 @@ async def verify_facts(document_id: str):
         # 执行校验
         results = await verifier.verify_document_facts(document_id)
         
+        # 统计
+        supported_count = sum(1 for r in results if r.get('is_supported') and not r.get('skipped', False))
+        unsupported_count = sum(1 for r in results if not r.get('is_supported') and not r.get('skipped', False))
+        skipped_count = sum(1 for r in results if r.get('skipped', False))
+        
+        # 如果 only_errors=True，只返回验证失败的
+        filtered_results = results
+        if only_errors:
+            filtered_results = [r for r in results if not r.get('is_supported') and not r.get('skipped', False)]
+        
         return {
             "success": True,
             "document_id": document_id,
-            "verified_count": len(results),
-            "verifications": results,
+            "statistics": {
+                "total": len(results),
+                "supported": supported_count,
+                "unsupported": unsupported_count,
+                "skipped": skipped_count
+            },
+            "verified_count": len(filtered_results),
+            "verifications": filtered_results,
             "debug": getattr(verifier, "last_debug", {})
         }
         

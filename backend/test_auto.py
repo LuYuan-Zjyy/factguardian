@@ -80,8 +80,7 @@ def test_automated_flow(file_path):
 
     # 4. 验证事实
     print_step(3, "溯源验证（联网查证）")
-    print_warning("正在调用搜索引擎和 LLM 分析，预计需要 10-30 秒...")
-    response = requests.post(f"{BASE_URL}/api/documents/{doc_id}/verify-facts")
+    response = requests.post(f"{BASE_URL}/api/documents/{doc_id}/verify-facts?only_errors=true")
     
     if response.status_code != 200:
         print_error(f"验证失败: {response.text}")
@@ -89,61 +88,52 @@ def test_automated_flow(file_path):
 
     verify_data = response.json()
     results = verify_data.get("verifications", [])
-    print_success(f"验证完成！共验证 {len(results)} 条事实\n")
+    statistics = verify_data.get("statistics", {})
+    print_success(f"验证完成！\n")
     
     # 5. 生成详细报告
     print_header("事实验证报告")
     
-    supported_count = 0
-    unsupported_count = 0
-    skipped_count = 0
+    # 显示统计摘要
+    print(f"  {Colors.GREEN}✓ 验证通过: {statistics.get('supported', 0)}{Colors.RESET}")
+    print(f"  {Colors.RED}✗ 验证失败: {statistics.get('unsupported', 0)}{Colors.RESET}")
+    print(f"  {Colors.YELLOW}⊙ 跳过验证: {statistics.get('skipped', 0)}{Colors.RESET} (内部数据)")
+    print()
     
-    for idx, res in enumerate(results, 1):
-        is_supported = res.get('is_supported')
-        is_skipped = res.get('skipped', False)
-        confidence = res.get('confidence_level', 'Unknown')
-        original_fact = res.get('original_fact', {})
-        content = original_fact.get('content', '')
-        fact_type = original_fact.get('type', '未知')
-        verifiable_type = original_fact.get('verifiable_type', 'public')
+    # 只显示验证失败的事实（API 已过滤）
+    if len(results) > 0:
+        print(f"{Colors.BOLD}发现 {len(results)} 条需要修正的事实：{Colors.RESET}\n")
         
-        # 颜色编码状态
-        if is_skipped:
-            status_icon = f"{Colors.YELLOW}⊙ 跳过{Colors.RESET}"
-            skipped_count += 1
-        elif is_supported:
-            status_icon = f"{Colors.GREEN}✓ 真实{Colors.RESET}"
-            supported_count += 1
-        else:
-            status_icon = f"{Colors.RED}✗ 错误{Colors.RESET}"
-            unsupported_count += 1
-        
-        # 置信度颜色
-        if confidence == "High":
-            conf_color = Colors.GREEN
-        elif confidence == "Medium":
-            conf_color = Colors.YELLOW
-        else:
-            conf_color = Colors.RED
-        
-        print(f"{Colors.BOLD}【事实 {idx}】{Colors.RESET}")
-        print(f"  类型: {fact_type}")
-        print(f"  内容: {content}")
-        print(f"  状态: {status_icon}")
-        
-        if is_skipped:
-            print(f"  {Colors.YELLOW}说明: 内部数据，无法联网验证（建议使用'冲突检测'功能）{Colors.RESET}")
-        else:
+        for idx, res in enumerate(results, 1):
+            confidence = res.get('confidence_level', 'Unknown')
+            original_fact = res.get('original_fact', {})
+            content = original_fact.get('content', '')
+            fact_type = original_fact.get('type', '未知')
+            fact_index = res.get('fact_index', idx)
+            
+            # 置信度颜色
+            if confidence == "High":
+                conf_color = Colors.RED
+            elif confidence == "Medium":
+                conf_color = Colors.YELLOW
+            else:
+                conf_color = Colors.RED
+            
+            print(f"{Colors.BOLD}【错误 {idx}】原事实 #{fact_index}{Colors.RESET}")
+            print(f"  类型: {fact_type}")
+            print(f"  内容: {content}")
+            print(f"  状态: {Colors.RED}✗ 错误{Colors.RESET}")
             print(f"  置信度: {conf_color}{confidence}{Colors.RESET}")
             
-            if not is_supported:
-                correction = res.get('correction', 'N/A')
-                assessment = res.get('assessment', '')
-                
+            correction = res.get('correction', 'N/A')
+            assessment = res.get('assessment', '')
+            
+            if correction and correction != 'N/A' and correction.strip():
                 print(f"  {Colors.YELLOW}建议修正:{Colors.RESET} {correction}")
-                print(f"  {Colors.YELLOW}原因分析:{Colors.RESET} {assessment}")
-        
-        print()  # 空行分隔
+            print(f"  {Colors.YELLOW}原因分析:{Colors.RESET} {assessment}")
+            print()
+    else:
+        print(f"{Colors.GREEN}所有可验证事实均通过验证！{Colors.RESET}\n")
     
     # 4. 内部冲突检测（不依赖搜索）
     print_step(4, "内部冲突检测（不依赖搜索）")
@@ -181,32 +171,7 @@ def test_automated_flow(file_path):
             print(f"  事实B: [{fact_b.get('type', '未知')}] {fact_b.get('content', '')}")
             print(f"    位置: {fact_b.get('location', '')}\n")
 
-    # 6. 统计摘要
-    print_header("验证统计")
-    total_verified = supported_count + unsupported_count
-    total_all = total_verified + skipped_count
-    support_rate = (supported_count / total_verified * 100) if total_verified > 0 else 0
-    
-    print(f"  总事实数量: {Colors.BOLD}{total_all}{Colors.RESET}")
-    print(f"  {Colors.CYAN}已验证: {total_verified}{Colors.RESET} | {Colors.YELLOW}已跳过（内部数据）: {skipped_count}{Colors.RESET}")
-    print()
-    print(f"  {Colors.GREEN}✓ 真实事实: {supported_count}{Colors.RESET}")
-    print(f"  {Colors.RED}✗ 错误事实: {unsupported_count}{Colors.RESET}")
-    print(f"  准确率: {Colors.BOLD}{support_rate:.1f}%{Colors.RESET} (基于已验证的 {total_verified} 条)")
-    
-    # 判断文档质量
-    if support_rate >= 80:
-        quality = f"{Colors.GREEN}优秀{Colors.RESET}"
-    elif support_rate >= 60:
-        quality = f"{Colors.YELLOW}良好{Colors.RESET}"
-    else:
-        quality = f"{Colors.RED}需改进{Colors.RESET}"
-    
-    print(f"  文档质量: {quality}")
-    
-    if skipped_count > 0:
-        print(f"\n  {Colors.YELLOW}💡 提示: {skipped_count} 条内部数据未验证，建议使用 API /api/detect-conflicts 进行冲突检测{Colors.RESET}")
-    print()
+
 
 import sys
 
@@ -214,6 +179,7 @@ if __name__ == "__main__":
     if len(sys.argv) > 1:
         target_file = sys.argv[1]
     else:
-        target_file = "test_data.txt"
+        # 使用更简单、更具代表性的测试用例
+        target_file = "test_data_simple.txt"
         
     test_automated_flow(target_file)
