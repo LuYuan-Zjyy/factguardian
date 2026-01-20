@@ -38,6 +38,10 @@ services:
     restart: unless-stopped
 
   redis:
+    # 使用国内镜像源（如果官方源拉取失败）
+    # 可选镜像源：
+    # - registry.cn-hangzhou.aliyuncs.com/acs/redis:7-alpine
+    # - docker.mirrors.sjtug.sjtu.edu.cn/library/redis:7-alpine
     image: redis:7-alpine
     container_name: factguardian-redis
     ports:

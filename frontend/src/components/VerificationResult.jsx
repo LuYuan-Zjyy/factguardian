@@ -1,7 +1,7 @@
 import React from 'react';
-import { CheckCircle2, XCircle, Search, HelpCircle, ExternalLink } from 'lucide-react';
+import { CheckCircle2, XCircle, Search, HelpCircle, ExternalLink, MousePointerClick } from 'lucide-react';
 
-export default function VerificationResult({ verifications }) {
+export default function VerificationResult({ verifications, verificationRefs }) {
     if (!verifications || verifications.length === 0) return null;
 
     // Filter to show errors first
@@ -34,15 +34,29 @@ export default function VerificationResult({ verifications }) {
             <h3 className="text-lg font-bold flex items-center gap-2 text-slate-800">
                 <Search className="text-blue-500" />
                 联网溯源校验 ({verifications.length})
+                <span className="text-xs font-normal text-slate-400 flex items-center gap-1">
+                    <MousePointerClick className="w-3 h-3" />
+                    点击左侧文档高亮可跳转
+                </span>
             </h3>
 
             <div className="grid gap-4">
                 {sortedVerifications.map((item, idx) => {
                     const isError = item.is_supported === false;
                     const isPass = item.is_supported === true;
+                    const factId = item.original_fact?.fact_id;
                     
                     return (
-                        <div key={idx} className={`card ${isError ? 'border-red-200 bg-red-50/50' : ''}`}>
+                        <div 
+                            key={factId || idx} 
+                            ref={(el) => {
+                                if (verificationRefs && factId) {
+                                    verificationRefs.current[factId] = el;
+                                }
+                            }}
+                            id={`verification-${factId}`}
+                            className={`card transition-all duration-300 ${isError ? 'border-red-200 bg-red-50/50' : ''}`}
+                        >
                             <div className="flex items-start gap-4">
                                 <div className="mt-1 flex-shrink-0">
                                     {isError ? (
