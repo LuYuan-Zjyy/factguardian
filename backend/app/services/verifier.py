@@ -28,17 +28,22 @@ VERIFICATION_PROMPT_TEMPLATE = """
 
 请评估该事实的真实性。
 
-请严格按照以下 JSON 格式输出（注意：JSON必须完整有效，不要包含任何其他文本）：
+请采用思维链（Chain of Thought）的方式进行分析：
+1. 分析事实的核心主张（主体、谓词、客体、时间等）。
+2. 将核心主张与搜索到的信息进行比对。
+3. 检查是否存在矛盾或确认的证据。
+4. 综合判断置信度。
+
+最后，请严格按照以下 JSON 格式输出结果（JSON需包含在 ```json 代码块中）：
 ```json
 {{
   "is_supported": true或false,
   "confidence_level": "High"或"Medium"或"Low",
-  "assessment": "简短的评估说明，解释为什么支持或不支持",
+  "assessment": "根据上述分析的简短结论",
   "correction": "如果事实错误，请提供正确的建议值，否则留空"
 }}
 ```
-
-请只返回JSON，不要包含其他内容。"""
+"""
 QUERY_GENERATION_PROMPT = """
 我需要通过搜索引擎验证以下事实。请为这个事实生成 1-2 个最有效的搜索关键词或查询语句。
 只返回查询语句，每行一个，不要有其他废话。
@@ -222,19 +227,29 @@ class FactVerifier:
         
         # Step 4: Parse JSON result with robust error handling
         try:
-            # Clean up potential markdown code blocks and whitespace
-            clean_result = raw_result.strip()
-            if clean_result.startswith("```json"):
-                clean_result = clean_result[7:]
-            elif clean_result.startswith("```"):
-                clean_result = clean_result[3:]
-            if clean_result.endswith("```"):
-                clean_result = clean_result[:-3]
+            # 尝试提取 JSON 内容（兼容包含思维链的情况）
+            content_to_parse = raw_result.strip()
             
-            clean_result = clean_result.strip()
-            logger.debug(f"Cleaned result: {clean_result[:300]}")
+            # 策略1: 寻找 markdown 代码块
+            json_start = content_to_parse.find("```json")
+            if json_start != -1:
+                json_start += 7
+                json_end = content_to_parse.find("```", json_start)
+                if json_end != -1:
+                    content_to_parse = content_to_parse[json_start:json_end]
+                else:
+                    content_to_parse = content_to_parse[json_start:]
+            else:
+                # 策略2: 寻找最外层的 {}
+                start_idx = content_to_parse.find("{")
+                end_idx = content_to_parse.rfind("}")
+                if start_idx != -1 and end_idx != -1:
+                    content_to_parse = content_to_parse[start_idx:end_idx+1]
+
+            content_to_parse = content_to_parse.strip()
+            logger.debug(f"Parsed JSON content: {content_to_parse[:300]}")
             
-            parsed_result = json.loads(clean_result)
+            parsed_result = json.loads(content_to_parse)
             
             # Validate required fields
             if "is_supported" not in parsed_result:

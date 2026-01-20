@@ -99,26 +99,9 @@ docker-compose --version
 ```env
 DEEPSEEK_API_KEY=your_deepseek_api_key_here
 REDIS_URL=redis://redis:6379/0
+DOUBAO_API_KEY=your_doubao_api_key_here
+DOUBAO_ENDPOINT=your_doubao_endpoint_here
 ```
-
-## 从源码构建
-
-### 后端服务
-
-1. 导航到后端目录：
-   ```bash
-   cd backend
-   ```
-
-2. 安装 Python 依赖：
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-3. 运行开发服务器：
-   ```bash
-   python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
-   ```
 
 ### Docker 构建
 
