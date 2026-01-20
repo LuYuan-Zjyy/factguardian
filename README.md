@@ -1,421 +1,141 @@
 # FactGuardian
 
-A cloud-native intelligent agent for long-text fact consistency verification. Automatically extracts key facts, detects logical conflicts, and verifies fact sources. Designed for multi-person collaborative documents like dissertations and feasibility reports.
+FactGuardian 是一个云原生智能代理，专为长文本事实一致性验证而设计。它自动从文档中提取关键事实，检测逻辑冲突，并通过外部验证来验证事实来源。该系统特别适用于多人员协作文档，如论文、可行性报告和技术文档。
 
-## 🚀 完整安装指南
+## 功能特性
 
-本文档假设您尚未安装任何依赖，将从零开始完成整个配置过程。
+- **文档解析**：支持多种文件格式（DOCX、PDF、TXT、Markdown）
+- **事实提取**：基于LLM的提取关键事实、数据点和结论
+- **冲突检测**：自动检测内部逻辑冲突和不一致
+- **来源验证**：通过网络搜索和权威来源进行外部事实验证
+- **图文对比**：验证文本描述与视觉图表的一致性
+- **参考对比**：跨文档相似性分析和引用关系检测
+- **性能优化**：MinHash LSH算法用于高效相似性计算
+
+## 系统要求
+
+- **操作系统**：Windows 10/11、macOS 10.15+ 或 Linux（Ubuntu 18.04+）
+- **内存**：8GB RAM 最低要求，16GB 推荐
+- **存储**：5GB 可用磁盘空间
+- **网络**：互联网连接用于外部事实验证
+- **API密钥**：DeepSeek API密钥用于LLM服务
+
+## 快速开始
 
 ### 前置要求
 
-- 操作系统：Windows 10/11, macOS, 或 Linux
-- 8GB+ 可用内存
-- 5GB+ 可用磁盘空间
-- DeepSeek API Key（用于 LLM 事实提取和冲突检测）
+1. 安装 Docker Desktop（版本 24.0.0 或更高）
+2. 安装 Docker Compose（版本 1.29.0 或更高）
+3. 获取 DeepSeek API 密钥
 
----
+### 安装
 
-## 第一步：安装 Docker
+1. 克隆仓库：
+   ```bash
+   git clone <repository-url>
+   cd factguardian
+   ```
 
-### Windows 系统
+2. 配置环境变量：
+   ```bash
+   cp .env.example .env
+   # 编辑 .env 并添加您的 DeepSeek API 密钥
+   ```
 
-1. **下载 Docker Desktop**
-   - 访问：https://www.docker.com/products/docker-desktop/
-   - 点击 "Download for Windows"
-   - 下载 `Docker Desktop Installer.exe`
+3. 构建并启动服务：
+   ```bash
+   docker-compose up --build
+   ```
 
-2. **安装 Docker Desktop**
-   - 双击安装程序
-   - 按照安装向导完成安装
-   - 安装完成后重启电脑（如果提示）
+4. 验证安装：
+   ```bash
+   curl http://localhost:8000/health
+   ```
 
-3. **启动 Docker Desktop**
-   - 从开始菜单启动 "Docker Desktop"
-   - 等待 Docker 启动完成（系统托盘图标不再闪烁）
+## 安装指南
 
-4. **验证安装**
-   打开 PowerShell 或 CMD，运行：
+### Docker 安装
+
+#### Windows
+
+1. 从 https://www.docker.com/products/docker-desktop/ 下载 Docker Desktop
+2. 运行安装程序并按照设置向导完成安装
+3. 启动 Docker Desktop 并等待初始化完成
+4. 验证安装：
    ```powershell
    docker --version
    docker-compose --version
    ```
-   应该显示版本信息，例如：
-   ```
-   Docker version 24.0.0
-   docker-compose version 1.29.0
-   ```
 
-### macOS 系统
+#### macOS
 
-1. **下载 Docker Desktop**
-   - 访问：https://www.docker.com/products/docker-desktop/
-   - 点击 "Download for Mac"
-   - 根据芯片类型选择：
-     - Apple Silicon (M1/M2/M3) → `Docker.dmg` (Apple Silicon)
-     - Intel 芯片 → `Docker.dmg` (Intel)
-
-2. **安装 Docker Desktop**
-   - 双击下载的 `.dmg` 文件
-   - 将 Docker 图标拖到 Applications 文件夹
-   - 从 Applications 启动 Docker Desktop
-
-3. **启动 Docker Desktop**
-   - 首次启动需要授权
-   - 等待 Docker 启动完成（菜单栏图标不再闪烁）
-
-4. **验证安装**
-   打开 Terminal，运行：
+1. 下载适用于 Mac 的 Docker Desktop
+2. 安装应用程序
+3. 启动 Docker Desktop
+4. 验证安装：
    ```bash
    docker --version
    docker-compose --version
    ```
 
-### Linux 系统
+#### Linux
 
-1. **安装 Docker**
+```bash
+# Ubuntu/Debian
+sudo apt-get update
+sudo apt-get install -y docker.io docker-compose
+sudo systemctl start docker
+sudo systemctl enable docker
+
+# 验证安装
+docker --version
+docker-compose --version
+```
+
+### 环境配置
+
+在项目根目录创建 `.env` 文件，包含以下变量：
+
+```env
+DEEPSEEK_API_KEY=your_deepseek_api_key_here
+REDIS_URL=redis://redis:6379/0
+```
+
+## 从源码构建
+
+### 后端服务
+
+1. 导航到后端目录：
    ```bash
-   # Ubuntu/Debian
-   sudo apt-get update
-   sudo apt-get install -y docker.io docker-compose
-   
-   # CentOS/RHEL
-   sudo yum install -y docker docker-compose
-   
-   # 启动 Docker 服务
-   sudo systemctl start docker
-   sudo systemctl enable docker
+   cd backend
    ```
 
-2. **验证安装**
+2. 安装 Python 依赖：
    ```bash
-   docker --version
-   docker-compose --version
+   pip install -r requirements.txt
    ```
 
----
-
-## 第二步：获取项目代码
-
-### 方式一：使用 Git 克隆（推荐）
-
-```bash
-# 克隆项目
-git clone <your-repo-url>
-cd factguardian
-```
-
-### 方式二：直接下载 ZIP
-
-1. 从代码仓库下载 ZIP 文件
-2. 解压到本地目录
-3. 打开终端，进入项目目录：
+3. 运行开发服务器：
    ```bash
-   cd path/to/factguardian
+   python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
    ```
 
----
-
-## 第三步：配置环境变量
-
-项目需要使用 DeepSeek API Key 进行 LLM 调用。需要创建一个 `.env` 文件。
-
-### 1. 获取 DeepSeek API Key
-
-1. 访问 https://platform.deepseek.com/
-2. 注册/登录账号
-3. 进入 API Keys 页面
-4. 创建新的 API Key 并复制
-
-### 2. 创建 `.env` 文件
-
-在项目根目录 `factguardian/` 下创建 `.env` 文件：
-
-**Windows (PowerShell)**
-```powershell
-# 在项目根目录下
-New-Item -Path .env -ItemType File
-
-# 编辑 .env 文件，添加以下内容：
-# DEEPSEEK_API_KEY=sk-your-api-key-here
-# DEEPSEEK_BASE_URL=https://api.deepseek.com
-```
-
-**Windows (CMD)**
-```cmd
-cd factguardian
-type nul > .env
-# 然后用记事本编辑 .env 文件
-notepad .env
-```
-
-**macOS/Linux**
-```bash
-cd factguardian
-touch .env
-nano .env  # 或使用 vim/其他编辑器
-```
-
-### 3. 编辑 `.env` 文件内容
-
-在 `.env` 文件中添加以下内容（替换为你的实际 API Key）：
+### Docker 构建
 
 ```bash
-DEEPSEEK_API_KEY=sk-your-deepseek-api-key-here
-DEEPSEEK_BASE_URL=https://api.deepseek.com
-```
-
-**重要提示**：
-- 不要将 `.env` 文件提交到 Git 仓库
-- 确保 API Key 正确无误
-- 保存文件后，检查文件确实在 `factguardian/` 目录下
-
----
-
-## 第四步：构建和启动服务
-
-### 1. 验证文件结构
-
-确保项目结构如下：
-```
-factguardian/
-├── backend/
-│   ├── app/
-│   ├── Dockerfile
-│   └── requirements.txt
-├── docker-compose.yml
-├── .env          ← 确保这个文件存在
-└── README.md
-```
-
-### 2. 构建 Docker 镜像
-
-第一次运行需要构建镜像，这可能需要几分钟（下载依赖包）：
-
-```bash
-# 在项目根目录执行
+# 构建所有服务
 docker-compose build
+
+# 构建特定服务
+docker-compose build backend
+
+# 无缓存构建
+docker-compose build --no-cache
 ```
 
-**预期输出**：
-- 看到 "Building backend..." 和下载进度
-- 最后显示 "Successfully built ..."
-- 如果出错，检查网络连接和 Docker Desktop 是否运行
-
-### 3. 启动所有服务
-
-```bash
-# 前台运行（可以看到日志）
-docker-compose up
-
-# 或者后台运行（推荐）
-docker-compose up -d
-```
-
-**预期输出**：
-```
-Creating network "factguardian_default" ... done
-Creating factguardian-redis ... done
-Creating factguardian-backend ... done
-```
-
-### 4. 验证服务运行状态
-
-```bash
-# 查看容器状态
-docker-compose ps
-```
-
-**预期输出**：
-```
-NAME                   IMAGE                  STATUS
-factguardian-backend   factguardian-backend   Up X seconds
-factguardian-redis     redis:7-alpine         Up X seconds
-```
-
-如果 STATUS 显示 "Up"，说明服务已成功启动。
-
----
-
-## 第五步：验证服务可用性
-
-### 1. 检查健康状态
-
-**浏览器访问**：
-- 打开浏览器，访问：http://localhost:8000/health
-
-**或使用命令行**：
-```bash
-# Windows (PowerShell)
-curl http://localhost:8000/health
-
-# macOS/Linux
-curl http://localhost:8000/health
-```
-
-**预期响应**：
-```json
-{
-  "status": "healthy",
-  "service": "FactGuardian Backend",
-  "redis": "connected",
-  "llm": "configured"
-}
-```
-
-### 2. 访问 API 文档
-
-打开浏览器访问：**http://localhost:8000/docs**
-
-您应该看到 Swagger UI 界面，显示所有可用的 API 端点。
-
-### 3. 查看服务日志
-
-如果遇到问题，可以查看日志：
-
-```bash
-# 查看后端日志
-docker-compose logs backend
-
-# 实时查看日志
-docker-compose logs -f backend
-
-# 查看所有服务日志
-docker-compose logs
-```
-
----
-
-## 常见问题排查
-
-### 问题 1: Docker Desktop 未运行
-
-**错误提示**：
-```
-Cannot connect to the Docker daemon. Is the docker daemon running?
-```
-
-**解决方法**：
-- Windows/Mac: 启动 Docker Desktop 应用程序
-- Linux: 运行 `sudo systemctl start docker`
-
-### 问题 2: 端口被占用
-
-**错误提示**：
-```
-Error: bind: address already in use
-```
-
-**解决方法**：
-- 检查 8000 或 6379 端口是否被占用
-- 可以修改 `docker-compose.yml` 中的端口映射
-- 或关闭占用端口的程序
-
-### 问题 3: 环境变量未加载
-
-**症状**：健康检查显示 `"llm": "not_configured"`
-
-**解决方法**：
-1. 确认 `.env` 文件在项目根目录
-2. 检查 `.env` 文件内容格式（无多余空格）
-3. 重启服务：`docker-compose restart backend`
-
-### 问题 4: 构建失败
-
-**症状**：`docker-compose build` 失败
-
-**解决方法**：
-1. 检查网络连接（需要下载依赖包）
-2. 清除 Docker 缓存：`docker system prune -a`
-3. 重新构建：`docker-compose build --no-cache`
-
----
-
-## 服务使用说明
+## 使用指南
 
 ### 启动服务
-
-```bash
-# 启动所有服务（后台运行）
-docker-compose up -d
-
-# 启动并查看日志
-docker-compose up
-```
-
-### 停止服务
-
-```bash
-# 停止服务（保留容器）
-docker-compose stop
-
-# 停止并删除容器
-docker-compose down
-
-# 停止并删除所有数据（包括 Redis 数据）
-docker-compose down -v
-```
-
-### 重启服务
-
-```bash
-# 重启所有服务
-docker-compose restart
-
-# 只重启后端服务
-docker-compose restart backend
-```
-
-### 查看日志
-
-```bash
-# 查看后端日志
-docker-compose logs backend
-
-# 实时跟踪日志
-docker-compose logs -f backend
-
-# 查看最近 100 行日志
-docker-compose logs --tail=100 backend
-```
-
-### 重新构建镜像
-
-当修改了代码或 `requirements.txt` 后：
-
-```bash
-# 重新构建并重启
-docker-compose build backend
-docker-compose up -d backend
-```
-
-### 进入容器调试
-
-```bash
-# 进入后端容器
-docker-compose exec backend bash
-
-# 在容器内可以运行 Python 命令
-python -c "import app; print('OK')"
-
-# 退出容器
-exit
-```
-
-## 📦 Docker 使用说明
-
-### 服务架构
-
-```
-factguardian/
-├── backend/          # FastAPI 后端服务
-│   ├── app/         # 应用代码
-│   ├── Dockerfile   # 后端镜像构建文件
-│   └── requirements.txt
-├── docker-compose.yml  # 服务编排配置
-└── .env             # 环境变量配置
-```
-
-### 常用命令
 
 ```bash
 # 启动所有服务
@@ -424,187 +144,262 @@ docker-compose up
 # 后台启动
 docker-compose up -d
 
-# 停止所有服务
-docker-compose down
-
-# 停止并删除数据卷
-docker-compose down -v
-
-# 查看服务状态
-docker-compose ps
-
-# 查看日志
-docker-compose logs -f backend
-docker-compose logs -f redis
-
-# 重启服务
-docker-compose restart backend
-
-# 重新构建镜像
-docker-compose build backend
-
-# 进入容器
-docker-compose exec backend bash
+# 启动特定服务
+docker-compose up backend
 ```
 
-### 服务说明
+### 服务端点
 
-- **backend**: FastAPI 后端服务 (端口 8000)
-- **redis**: Redis 缓存服务 (端口 6379)
+- **API 文档**：http://localhost:8000/docs
+- **健康检查**：http://localhost:8000/health
+- **后端服务**：http://localhost:8000
 
-## 🎯 已实现功能
+### 基本用法
 
-### ✅ 阶段一：基础架构
+1. **文档上传和分析**：
+   ```bash
+   curl -X POST "http://localhost:8000/api/upload" \
+        -H "Content-Type: multipart/form-data" \
+        -F "file=@document.docx"
+   ```
 
-- [x] 项目目录结构
-- [x] Docker 环境配置
-  - [x] backend/Dockerfile
-  - [x] docker-compose.yml
-  - [x] 服务启动验证
+2. **事实提取**：
+   ```bash
+   curl -X POST "http://localhost:8000/api/extract-facts" \
+        -H "Content-Type: application/json" \
+        -d '{"document_id": "your_document_id"}'
+   ```
 
-### ✅ 阶段二：核心功能
+3. **冲突检测**：
+   ```bash
+   curl -X POST "http://localhost:8000/api/detect-conflicts/your_document_id"
+   ```
 
-#### 2.1 文档解析模块 ✅
+## 测试指南
 
-- [x] 文件上传 API (`/api/upload`)
-- [x] 文档解析器 (`backend/app/services/parser.py`)
-  - [x] 支持 `.docx` (python-docx)
-  - [x] 支持 `.pdf` (pdfplumber/PyPDF2)
-  - [x] 支持 `.txt`
-  - [x] 支持 `.md` / `.markdown`
-- [x] 文档分段逻辑（按章节/段落切分）
+项目包含完整的自动化测试脚本，位于 `backend/` 目录。
 
-#### 2.2 事实提取模块 ✅
+### 测试文件
 
-- [x] DeepSeek LLM API 集成
-  - [x] 环境变量配置
-  - [x] LLM 客户端封装 (`backend/app/services/llm_client.py`)
-- [x] 事实提取 Prompt 设计
-- [x] 事实提取 API (`/api/extract-facts`)
-- [x] Redis 存储 (`facts:{document_id}`)
-- [x] 一站式分析 API (`/api/analyze`)
+- `test_data_simple.txt`：用于基本功能测试的示例文本文档
+- `document.docx`：用于图文对比的示例 Word 文档
+- `architecture.png`：用于图文对比的示例图表
+- `main.docx`：用于参考对比的主文档
+- `reference1.docx`：用于对比测试的参考文档
 
-#### 2.3 冲突检测模块 ✅
+### 运行测试
 
-- [x] 冲突检测 Prompt 设计
-- [x] 成对事实比对逻辑（同类型优先）
-- [x] **LSH (MinHash) 优化** - 快速过滤相似事实对
-  - [x] 集成 jieba 分词
-  - [x] 使用 datasketch 实现 MinHash LSH
-  - [x] 时间复杂度从 O(n²) 优化到接近 O(n)
-- [x] 冲突检测 API (`/api/detect-conflicts/{document_id}`)
-- [x] Redis 存储 (`conflicts:{document_id}`)
-- [x] 冲突查询 API (`/api/conflicts/{document_id}`)
+#### 单文档分析
 
-## 📋 API 端点
+测试基本的事实提取、验证和冲突检测：
 
-| 端点 | 方法 | 功能 |
+```bash
+cd backend
+python test_auto.py test_data_simple.txt
+```
+
+#### 图文对比
+
+比较文档内容与视觉图表：
+
+```bash
+cd backend
+python test_auto.py document.docx image-compare architecture.png
+```
+
+#### 多文档参考对比
+
+分析主文档与参考文档之间的相似性：
+
+```bash
+cd backend
+# 单个参考文档
+python test_auto.py main.docx ref-compare reference1.docx
+
+# 多个参考文档
+python test_auto.py main.docx ref-compare reference1.docx reference2.docx reference3.docx
+```
+
+### 测试脚本参数
+
+```
+用法: python test_auto.py <文档路径> [模式] [附加文件...]
+
+参数:
+  document_path    主文档文件路径 (.txt, .docx, .pdf)
+  mode            可选: 'image-compare' 或 'ref-compare'
+  additional_files 图文模式下的图像文件，或参考模式下的参考文档
+
+示例:
+  python test_auto.py test_data_simple.txt                    # 单文档分析
+  python test_auto.py document.docx image-compare architecture.png  # 图文对比
+  python test_auto.py main.docx ref-compare reference1.docx   # 参考对比
+```
+
+### 测试输出
+
+每次测试运行都会生成详细报告，包括：
+- 操作状态指示器
+- 统计摘要（事实数量、冲突数量等）
+- 识别的问题和修正建议
+- 详细的验证结果
+
+### 测试前提条件
+
+1. 确保后端服务正在运行（`docker-compose up`）
+2. 将测试文件放在 `backend/` 目录中
+3. 配置有效的 API 密钥到 `.env` 文件
+4. 保持互联网连接用于外部验证
+
+## API 文档
+
+### 核心端点
+
+| 端点 | 方法 | 描述 |
 |------|------|------|
 | `/` | GET | API 信息 |
-| `/health` | GET | 健康检查 |
-| `/api/upload` | POST | 上传文档并解析 |
-| `/api/extract-facts` | POST | 上传文档并提取事实 |
-| `/api/facts/{document_id}` | GET | 获取文档事实 |
+| `/health` | GET | 服务健康检查 |
+| `/api/upload` | POST | 上传并解析文档 |
+| `/api/extract-facts` | POST | 从文档提取事实 |
+| `/api/facts/{document_id}` | GET | 检索文档事实 |
 | `/api/detect-conflicts/{document_id}` | POST | 检测文档冲突 |
-| `/api/conflicts/{document_id}` | GET | 获取文档冲突 |
-| `/api/analyze` | POST | 一站式分析（解析+提取+检测） |
+| `/api/conflicts/{document_id}` | GET | 检索文档冲突 |
+| `/api/analyze` | POST | 完整分析流程 |
+| `/api/compare-image-text` | POST | 比较图像和文本一致性 |
+| `/api/compare-references` | POST | 比较文档引用 |
 
-## 🛠 技术栈
+### 请求/响应示例
 
-### 后端
+#### 文档上传
+```bash
+curl -X POST "http://localhost:8000/api/upload" \
+     -F "file=@sample.docx"
+```
 
-- **框架**: FastAPI (异步、高性能)
-- **文档解析**: python-docx, pdfplumber, PyPDF2
-- **LLM**: DeepSeek API
-- **缓存/存储**: Redis
-- **相似度算法**: jieba (分词), datasketch (MinHash LSH)
-- **容器化**: Docker + Docker Compose
+响应：
+```json
+{
+  "document_id": "abc123",
+  "filename": "sample.docx",
+  "content_length": 1024,
+  "sections": [...]
+}
+```
 
-### 依赖管理
+#### 事实提取
+```bash
+curl -X POST "http://localhost:8000/api/extract-facts" \
+     -H "Content-Type: application/json" \
+     -d '{"document_id": "abc123"}'
+```
 
-所有依赖在 `backend/requirements.txt` 中管理，包括：
+响应：
+```json
+{
+  "facts": [
+    {
+      "type": "data",
+      "content": "公司营收达到2.3亿元",
+      "location": "section_1",
+      "confidence": 0.95
+    }
+  ]
+}
+```
 
-- FastAPI, uvicorn
-- python-docx, PyPDF2, pdfplumber
-- httpx (HTTP 客户端)
-- redis (Redis 客户端)
-- jieba (中文分词)
-- datasketch (LSH/MinHash)
-
-## 📊 性能优化
-
-- **LSH 过滤**: 使用 MinHash + LSH 将比对时间复杂度从 O(n²) 降到接近 O(n)
-- **智能配对**: 同类型事实优先比对
-- **批量处理**: 支持批量事实提取和冲突检测
-
-## 🔜 待实现功能
-
-### 阶段三：扩展功能
-
-- [ ] 外部源验证模块
-- [ ] 参考文档对比
-- [ ] 图片/图表对比
-
-### 阶段四：Web 界面
-
-- [ ] 前端框架搭建
-- [ ] 文档上传界面
-- [ ] 事实展示界面
-- [ ] 冲突可视化界面
-
-### 阶段五：高级功能
-
-- [ ] 智能推荐系统
-- [ ] 文档改写建议
-- [ ] 参考文献检查
-- [ ] 版本对比功能
-
-## 📝 开发说明
-
-### 项目结构
+## 项目结构
 
 ```
 factguardian/
 ├── backend/
 │   ├── app/
-│   │   ├── main.py              # FastAPI 主应用
-│   │   └── services/
-│   │       ├── parser.py        # 文档解析器
-│   │       ├── llm_client.py    # LLM 客户端
-│   │       ├── redis_client.py  # Redis 客户端
-│   │       ├── fact_extractor.py # 事实提取服务
+│   │   ├── main.py                 # FastAPI 应用入口点
+│   │   ├── models/                 # Pydantic 数据模型
+│   │   └── services/               # 业务逻辑服务
+│   │       ├── parser.py           # 文档解析服务
+│   │       ├── llm_client.py       # LLM API 客户端
+│   │       ├── redis_client.py     # Redis 缓存客户端
+│   │       ├── fact_extractor.py   # 事实提取服务
 │   │       ├── conflict_detector.py # 冲突检测服务
-│   │       └── lsh_filter.py    # LSH 相似度过滤
-│   ├── Dockerfile
-│   └── requirements.txt
-├── docker-compose.yml
-├── .env.example
-└── README.md
+│   │       ├── verifier.py         # 事实验证服务
+│   │       ├── lsh_filter.py       # LSH 相似度过滤
+│   │       └── search_client.py    # 外部搜索客户端
+│   ├── Dockerfile                  # 后端容器定义
+│   ├── requirements.txt            # Python 依赖
+│   └── test_auto.py                # 自动化测试脚本
+├── docker-compose.yml              # 服务编排
+├── .env.example                    # 环境变量模板
+├── README.md                       # 本文件
+└── TODO.md                         # 开发路线图
 ```
 
-### 添加新的依赖
+## 开发
+
+### 添加依赖
 
 1. 更新 `backend/requirements.txt`
-2. 重新构建镜像：`docker-compose build backend`
-3. 重启服务：`docker-compose restart backend`
+2. 重新构建 Docker 镜像：
+   ```bash
+   docker-compose build backend
+   ```
+3. 重启服务：
+   ```bash
+   docker-compose restart backend
+   ```
 
 ### 调试
 
 ```bash
-# 查看实时日志
+# 查看服务日志
+docker-compose logs backend
+
+# 实时跟踪日志
 docker-compose logs -f backend
 
-# 进入容器调试
+# 访问容器 shell
 docker-compose exec backend bash
 
-# 测试 API
+# 测试 API 端点
 curl http://localhost:8000/health
 ```
 
-## 📄 许可证
+### 代码质量
 
-MIT License
+- 为所有函数参数和返回值使用类型提示
+- 遵循 PEP 8 代码风格指南
+- 为所有公共函数和类添加文档字符串
+- 为新功能编写单元测试
 
-## 🤝 贡献
+## 故障排除
 
-欢迎提交 Issue 和 Pull Request！
+### 常见问题
+
+#### 服务无法启动
+- 检查 Docker Desktop 是否正在运行
+- 验证端口 8000 是否未被占用
+- 查看服务日志：`docker-compose logs backend`
+
+#### API 密钥错误
+- 确保 `.env` 文件存在并包含有效的 DeepSeek API 密钥
+- 检查 API 密钥格式和权限
+- 验证与 DeepSeek 服务的网络连接
+
+#### 内存问题
+- 增加 Docker Desktop 内存分配（最低 8GB）
+- 关闭其他内存密集型应用程序
+- 监控资源使用情况：`docker stats`
+
+#### 文件上传失败
+- 检查文件大小限制（默认 10MB）
+- 验证支持的文件格式
+- 确保正确的文件权限
+
+### 性能调优
+
+- **Redis 配置**：调整 Redis 内存设置以适应大型文档
+- **LLM 批量处理**：配置批量大小以优化 API 使用
+- **LSH 参数**：调整 MinHash 参数以平衡相似性准确性和速度
+
+## 许可证
+
+本项目采用 MIT 许可证 - 查看 LICENSE 文件了解详情。

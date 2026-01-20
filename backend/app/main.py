@@ -1,10 +1,19 @@
 """
 FactGuardian Backend - FastAPI Application
 """
+import os
+from dotenv import load_dotenv
+
+# Load .env file from root directory before importing services that might use env vars
+# Assuming structure: agent/.env and agent/backend/app/main.py
+dotenv_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), '.env')
+load_dotenv(dotenv_path)
+
 import uuid
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, UploadFile, File, HTTPException, Form
 from fastapi.responses import JSONResponse
-from typing import Optional
+from typing import Optional, List
+from pydantic import BaseModel
 import logging
 
 from app.services.parser import DocumentParser
@@ -13,6 +22,9 @@ from app.services.conflict_detector import conflict_detector
 from app.services.verifier import FactVerifier
 from app.services.redis_client import redis_client
 from app.services.llm_client import llm_client
+from app.services.reference_comparator import ReferenceComparator
+from app.services.image_extractor import ImageExtractor
+from app.services.image_text_comparator import ImageTextComparator
 
 # 配置日志
 logging.basicConfig(level=logging.INFO)
@@ -24,9 +36,12 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# 初始化文档解析器
+# 初始化服务
 parser = DocumentParser()
 verifier = FactVerifier()
+reference_comparator = ReferenceComparator()
+image_extractor = ImageExtractor()
+image_text_comparator = ImageTextComparator()
 
 
 @app.get("/")
@@ -651,6 +666,318 @@ async def analyze_document(file: UploadFile = File(...)):
         raise
     except Exception as e:
         logger.error(f"分析文件时发生错误: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"服务器错误: {str(e)}"
+        )
+
+
+@app.post("/api/upload-multiple")
+async def upload_multiple_documents(
+    main_doc: UploadFile = File(..., description="主文档"),
+    ref_docs: List[UploadFile] = File(..., description="参考文档列表")
+):
+    """
+    上传主文档和多个参考文档
+    
+    支持的文件类型：docx, pdf, txt, md
+    
+    Returns:
+        - main_document_id: 主文档ID
+        - reference_document_ids: 参考文档ID列表
+    """
+    try:
+        # 1. 解析主文档
+        main_content = await main_doc.read()
+        if len(main_content) == 0:
+            raise HTTPException(status_code=400, detail="主文档文件为空")
+        
+        main_result = parser.parse(main_content, main_doc.filename)
+        main_doc_id = str(uuid.uuid4())[:8]
+        
+        main_doc_data = {
+            "document_id": main_doc_id,
+            "filename": main_doc.filename,
+            "document_type": "main",
+            "file_type": main_result['file_type'],
+            "word_count": main_result['word_count'],
+            "section_count": len(main_result['sections']),
+            "metadata": main_result['metadata'],
+            "sections": main_result['sections'],
+            "text": main_result['text']
+        }
+        redis_client.save_document_metadata(main_doc_id, main_doc_data)
+        
+        logger.info(f"主文档上传成功: {main_doc.filename}, ID: {main_doc_id}")
+        
+        # 2. 解析所有参考文档
+        ref_doc_ids = []
+        for idx, ref_doc in enumerate(ref_docs):
+            ref_content = await ref_doc.read()
+            if len(ref_content) == 0:
+                logger.warning(f"参考文档 {idx+1} ({ref_doc.filename}) 为空，跳过")
+                continue
+            
+            try:
+                ref_result = parser.parse(ref_content, ref_doc.filename)
+                ref_doc_id = str(uuid.uuid4())[:8]
+                
+                ref_doc_data = {
+                    "document_id": ref_doc_id,
+                    "filename": ref_doc.filename,
+                    "document_type": "reference",
+                    "file_type": ref_result['file_type'],
+                    "word_count": ref_result['word_count'],
+                    "section_count": len(ref_result['sections']),
+                    "metadata": ref_result['metadata'],
+                    "sections": ref_result['sections'],
+                    "text": ref_result['text']
+                }
+                redis_client.save_document_metadata(ref_doc_id, ref_doc_data)
+                ref_doc_ids.append(ref_doc_id)
+                
+                logger.info(f"参考文档 {idx+1} 上传成功: {ref_doc.filename}, ID: {ref_doc_id}")
+            except Exception as e:
+                logger.error(f"解析参考文档 {ref_doc.filename} 失败: {str(e)}")
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"参考文档 {ref_doc.filename} 解析失败: {str(e)}"
+                )
+        
+        if not ref_doc_ids:
+            raise HTTPException(status_code=400, detail="没有成功解析任何参考文档")
+        
+        return {
+            "success": True,
+            "main_document_id": main_doc_id,
+            "main_filename": main_doc.filename,
+            "reference_document_ids": ref_doc_ids,
+            "reference_count": len(ref_doc_ids)
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"多文件上传失败: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"服务器错误: {str(e)}"
+        )
+
+
+class ReferenceComparisonRequest(BaseModel):
+    main_doc_id: str
+    ref_doc_ids: List[str]
+    similarity_threshold: float = 0.3
+
+@app.post("/api/compare-references")
+async def compare_with_reference(request: ReferenceComparisonRequest):
+    """
+    对比主文档与参考文档的相似度
+    
+    Args:
+        request: 包含主文档ID、参考文档ID列表和相似度阈值的请求体
+    
+    Returns:
+        相似段落列表和统计信息
+    """
+    main_doc_id = request.main_doc_id
+    ref_doc_ids = request.ref_doc_ids
+    similarity_threshold = request.similarity_threshold
+
+    try:
+        # 检查 LLM 是否可用
+        if not llm_client.is_available():
+            raise HTTPException(
+                status_code=503,
+                detail="LLM 服务不可用，请检查 DEEPSEEK_API_KEY 是否已配置"
+            )
+        
+        # 验证阈值范围
+        if not 0 <= similarity_threshold <= 1:
+            raise HTTPException(
+                status_code=400,
+                detail="similarity_threshold 必须在 0-1 之间"
+            )
+        
+        logger.info(f"开始参考对比: 主文档 {main_doc_id} vs {len(ref_doc_ids)} 个参考文档")
+        
+        result = await reference_comparator.compare_documents(
+            main_doc_id=main_doc_id,
+            ref_doc_ids=ref_doc_ids,
+            similarity_threshold=similarity_threshold
+        )
+        
+        # 保存结果到 Redis（可选）
+        comparison_key = f"{main_doc_id}:comparisons"
+        redis_client.save_document_metadata(comparison_key, result)
+        
+        return {
+            "success": True,
+            **result
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"参考对比失败: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"参考对比失败: {str(e)}"
+        )
+
+
+@app.post("/api/extract-from-image")
+async def extract_image_content(file: UploadFile = File(...)):
+    """
+    上传图片并提取内容描述
+    
+    支持格式: PNG, JPG, JPEG, GIF, WEBP
+    
+    需要配置 Vision API Key:
+    - OPENAI_API_KEY (使用 GPT-4V)
+    - 或 ANTHROPIC_API_KEY (使用 Claude Vision)
+    """
+    try:
+        # 验证文件类型
+        file_ext = file.filename.lower().split('.')[-1] if '.' in file.filename else ''
+        if file_ext not in ['png', 'jpg', 'jpeg', 'gif', 'webp']:
+            raise HTTPException(
+                status_code=400,
+                detail=f"不支持的图片格式: {file_ext}。支持: png, jpg, jpeg, gif, webp"
+            )
+        
+        # 检查服务是否可用
+        if not image_extractor.is_available():
+            raise HTTPException(
+                status_code=503,
+                detail="图片提取服务不可用，请配置 OPENAI_API_KEY 或 ANTHROPIC_API_KEY"
+            )
+        
+        # 读取图片内容
+        image_content = await file.read()
+        
+        if len(image_content) == 0:
+            raise HTTPException(status_code=400, detail="图片文件为空")
+        
+        logger.info(f"开始提取图片内容: {file.filename}, 大小: {len(image_content)} bytes")
+        
+        # 提取内容
+        result = await image_extractor.extract_from_image(
+            image_content, file.filename
+        )
+        
+        logger.info(f"图片内容提取完成: {file.filename}")
+        
+        return {
+            "success": True,
+            **result
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"图片提取失败: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"图片提取失败: {str(e)}"
+        )
+
+
+@app.post("/api/compare-image-text")
+async def compare_image_with_text(
+    file: UploadFile = File(...),
+    document_id: Optional[str] = Form(None),
+    relevant_sections: Optional[str] = Form(None)
+):
+    """
+    对比图片与文档的一致性
+    
+    Args:
+        file: 图片文件
+        document_id: 文档ID（如果提供，将对比文档内容；如果不提供，只提取图片内容）
+        relevant_sections: 相关章节索引列表（可选，None 表示所有章节）
+    
+    Returns:
+        如果提供 document_id: 返回对比结果
+        如果不提供 document_id: 只返回图片提取结果
+    """
+    try:
+        # 验证图片格式
+        file_ext = file.filename.lower().split('.')[-1] if '.' in file.filename else ''
+        if file_ext not in ['png', 'jpg', 'jpeg', 'gif', 'webp']:
+            raise HTTPException(
+                status_code=400,
+                detail=f"不支持的图片格式: {file_ext}。支持: png, jpg, jpeg, gif, webp"
+            )
+        
+        # 检查服务是否可用
+        if not image_extractor.is_available():
+            raise HTTPException(
+                status_code=503,
+                detail="图片提取服务不可用，请配置 OPENAI_API_KEY 或 ANTHROPIC_API_KEY"
+            )
+        
+        # 读取图片
+        image_content = await file.read()
+        
+        if len(image_content) == 0:
+            raise HTTPException(status_code=400, detail="图片文件为空")
+        
+        if not document_id:
+            # 只提取图片内容
+            logger.info(f"只提取图片内容: {file.filename}")
+            result = await image_extractor.extract_from_image(
+                image_content, file.filename
+            )
+            return {
+                "success": True,
+                "mode": "extraction_only",
+                **result
+            }
+
+        # 解析 relevant_sections（从字符串转换为列表）
+        parsed_sections = None
+        if relevant_sections:
+            try:
+                parsed_sections = [int(x.strip()) for x in relevant_sections.split(',')]
+            except ValueError:
+                logger.warning(f"无法解析 relevant_sections: {relevant_sections}")
+
+        # 检查 LLM 是否可用（对比需要 LLM）
+        if not llm_client.is_available():
+            raise HTTPException(
+                status_code=503,
+                detail="LLM 服务不可用，请检查 DEEPSEEK_API_KEY 是否已配置"
+            )
+
+        # 对比图片与文档
+        logger.info(f"开始图文对比: {file.filename} vs 文档 {document_id}")
+
+        result = await image_text_comparator.compare_image_with_document(
+            image_content=image_content,
+            image_filename=file.filename,
+            document_id=document_id,
+            relevant_sections=parsed_sections
+        )
+        
+        logger.info(f"图文对比完成: {file.filename}")
+        
+        return {
+            "success": True,
+            "mode": "comparison",
+            **result
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"图文对比失败: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"图文对比失败: {str(e)}"
+        )
         raise HTTPException(
             status_code=500,
             detail=f"服务器错误: {str(e)}"
