@@ -1,7 +1,7 @@
-import React from 'react';
-import { AlertCircle, ArrowRight, BookOpen } from 'lucide-react';
+import React, { useEffect } from 'react';
+import { AlertCircle, ArrowRight, BookOpen, MousePointerClick } from 'lucide-react';
 
-export default function ConflictList({ conflicts }) {
+export default function ConflictList({ conflicts, conflictRefs }) {
     if (!conflicts || conflicts.length === 0) return null;
 
     return (
@@ -9,11 +9,24 @@ export default function ConflictList({ conflicts }) {
             <h3 className="text-lg font-bold flex items-center gap-2 text-slate-800">
                 <AlertCircle className="text-amber-500" />
                 检测到的矛盾 ({conflicts.length})
+                <span className="text-xs font-normal text-slate-400 flex items-center gap-1">
+                    <MousePointerClick className="w-3 h-3" />
+                    点击左侧文档高亮可跳转
+                </span>
             </h3>
             
             <div className="grid gap-4">
                 {conflicts.map((conflict, idx) => (
-                    <div key={idx} className="card border-l-4 border-l-amber-500">
+                    <div 
+                        key={conflict.conflict_id || idx} 
+                        ref={(el) => {
+                            if (conflictRefs) {
+                                conflictRefs.current[conflict.conflict_id] = el;
+                            }
+                        }}
+                        id={`conflict-${conflict.conflict_id}`}
+                        className="card border-l-4 border-l-amber-500 transition-all duration-300"
+                    >
                         <div className="flex justify-between items-start mb-4">
                             <div>
                                 <span className={`inline-block px-2 py-1 rounded text-xs font-bold mb-2 

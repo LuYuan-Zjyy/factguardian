@@ -13,6 +13,7 @@ from itertools import combinations
 from .llm_client import llm_client
 from .redis_client import redis_client
 from .lsh_filter import lsh_filter
+from .progress_manager import progress_manager, ProgressStage
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +46,8 @@ class ConflictDetector:
         facts: List[Dict[str, Any]] = None,
         save_to_redis: bool = True,
         use_lsh: bool = False,
-        max_pairs: int = 300
+        max_pairs: int = 300,
+        report_progress: bool = True
     ) -> Dict[str, Any]:
         """
         检测文档中事实之间的冲突
@@ -56,6 +58,7 @@ class ConflictDetector:
             save_to_redis: 是否保存结果到 Redis
             use_lsh: 是否使用 LSH 预过滤（默认False，因LSH会漏掉数值/时间冲突）
             max_pairs: 最大比对对数（默认300，结构化字段智能过滤后的高风险对）
+            report_progress: 是否报告进度
         
         Returns:
             冲突检测结果
@@ -78,6 +81,19 @@ class ConflictDetector:
         
         logger.info(f"开始冲突检测: 文档 {document_id}, 共 {len(facts)} 条事实")
         
+        # 初始化进度 - 标记上一阶段完成，进入冲突检测阶段
+        if report_progress:
+            await progress_manager.update_progress(
+                document_id,
+                stage=ProgressStage.DETECT_CONFLICTS,
+                stage_label="冲突检测",
+                current=0,
+                total=1,
+                message="正在生成事实对比对列表...",
+                sub_message="准备中...",
+                mark_stage_complete=True
+            )
+        
         # 使用 LSH 预过滤或传统方法生成事实对
         if use_lsh:
             # 使用 LSH 预过滤；若结果过少，则回退到全量生成
@@ -90,6 +106,17 @@ class ConflictDetector:
             # 直接全量/按类型生成，确保覆盖潜在矛盾
             fact_pairs = self._generate_comparison_pairs(facts, max_pairs=max_pairs)
             logger.info(f"生成 {len(fact_pairs)} 对事实进行比对")
+        
+        total_pairs = len(fact_pairs)
+        
+        # 更新进度 - 设置总比对数
+        if report_progress:
+            await progress_manager.update_progress(
+                document_id,
+                total=total_pairs,
+                message=f"正在进行全文档逻辑矛盾检测 (0/{total_pairs})",
+                sub_message=f"共 {total_pairs} 对事实需要比对"
+            )
         
         # 检测冲突
         conflicts = []
@@ -108,6 +135,15 @@ class ConflictDetector:
             # 处理结果
             for (fact_a, fact_b), result in zip(batch, results):
                 comparison_count += 1
+                
+                # 更新进度
+                if report_progress and comparison_count % 5 == 0:  # 每5次更新一次，减少更新频率
+                    await progress_manager.update_progress(
+                        document_id,
+                        current=comparison_count,
+                        message=f"正在进行全文档逻辑矛盾检测 ({comparison_count}/{total_pairs})",
+                        sub_message=f"已发现 {len(conflicts)} 个冲突"
+                    )
                 
                 # 处理异常
                 if isinstance(result, Exception):

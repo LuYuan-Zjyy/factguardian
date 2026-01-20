@@ -5,11 +5,12 @@
 import asyncio
 import uuid
 import logging
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Callable
 
 from .llm_client import llm_client
 from .redis_client import redis_client
 from .fact_schema import ensure_schema, enrich_location
+from .progress_manager import progress_manager, ProgressStage
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +27,8 @@ class FactExtractor:
         document_id: str,
         sections: List[Dict[str, Any]],
         filename: str = "",
-        save_to_redis: bool = True
+        save_to_redis: bool = True,
+        report_progress: bool = True
     ) -> Dict[str, Any]:
         """
         从文档中提取所有事实
@@ -36,6 +38,7 @@ class FactExtractor:
             sections: 文档章节列表（来自 parser）
             filename: 文件名
             save_to_redis: 是否保存到 Redis
+            report_progress: 是否报告进度
         
         Returns:
             提取结果，包含所有事实和统计信息
@@ -45,6 +48,23 @@ class FactExtractor:
         
         all_facts = []
         section_stats = []
+        
+        # 计算有效章节数（内容长度>=20的章节）
+        valid_sections = [s for s in sections if len(s.get("content", "")) >= 20]
+        total_valid = len(valid_sections)
+        processed_count = 0
+        
+        # 初始化进度
+        if report_progress:
+            await progress_manager.update_progress(
+                document_id,
+                stage=ProgressStage.EXTRACT_FACTS,
+                stage_label="提取事实",
+                current=0,
+                total=total_valid,
+                message=f"正在使用 LLM 提取关键事实 (0/{total_valid})",
+                sub_message="准备中..."
+            )
         
         # 并行化优化：批量处理章节
         batch_size = 5  # 每批并行处理5个章节
@@ -74,6 +94,18 @@ class FactExtractor:
             
             # 处理结果
             for (idx, section_title, _), result in zip(tasks, results):
+                processed_count += 1
+                
+                # 更新进度
+                if report_progress:
+                    await progress_manager.update_progress(
+                        document_id,
+                        current=processed_count,
+                        total=total_valid,
+                        message=f"正在使用 LLM 提取关键事实 ({processed_count}/{total_valid})",
+                        sub_message=f"章节: {section_title[:40]}..." if len(section_title) > 40 else f"章节: {section_title}"
+                    )
+                
                 if isinstance(result, Exception):
                     logger.error(f"章节 {idx} 提取失败: {str(result)}")
                     section_stats.append({

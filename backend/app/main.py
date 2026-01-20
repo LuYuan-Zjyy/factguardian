@@ -2,6 +2,8 @@
 FactGuardian Backend - FastAPI Application
 """
 import os
+import asyncio
+import json
 from dotenv import load_dotenv
 
 # Load .env file from root directory before importing services that might use env vars
@@ -11,7 +13,7 @@ load_dotenv(dotenv_path)
 
 import uuid
 from fastapi import FastAPI, UploadFile, File, HTTPException, Form
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from typing import Optional, List
 from pydantic import BaseModel
 import logging
@@ -25,6 +27,7 @@ from app.services.llm_client import llm_client
 from app.services.reference_comparator import ReferenceComparator
 from app.services.image_extractor import ImageExtractor
 from app.services.image_text_comparator import ImageTextComparator
+from app.services.progress_manager import progress_manager, ProgressStage
 
 # 配置日志
 logging.basicConfig(level=logging.INFO)
@@ -69,6 +72,58 @@ async def health_check():
             "llm": llm_status
         }
     )
+
+
+@app.get("/api/progress/{document_id}")
+async def stream_progress(document_id: str):
+    """
+    SSE 端点：实时推送分析进度
+    
+    使用 Server-Sent Events 推送进度更新
+    前端可以通过 EventSource 订阅
+    """
+    async def event_generator():
+        queue = progress_manager.subscribe(document_id)
+        try:
+            while True:
+                try:
+                    # 等待进度更新，超时10秒发送心跳
+                    data = await asyncio.wait_for(queue.get(), timeout=10.0)
+                    yield f"data: {json.dumps(data, ensure_ascii=False)}\n\n"
+                    
+                    # 如果完成，退出
+                    if data.get("stage") == "complete":
+                        break
+                except asyncio.TimeoutError:
+                    # 发送心跳保持连接
+                    yield f": heartbeat\n\n"
+        finally:
+            progress_manager.unsubscribe(document_id, queue)
+    
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no"
+        }
+    )
+
+
+@app.get("/api/progress-status/{document_id}")
+async def get_progress_status(document_id: str):
+    """
+    获取当前进度状态（轮询方式，作为 SSE 的备选）
+    """
+    progress = progress_manager.get_progress(document_id)
+    if not progress:
+        return {"exists": False, "message": "进度会话不存在"}
+    
+    return {
+        "exists": True,
+        **progress.to_dict()
+    }
 
 
 @app.post("/api/upload")
@@ -269,6 +324,8 @@ async def extract_facts_by_id(document_id: str):
     根据文档ID提取事实（复用已上传的文档）
     
     前提：必须先调用 /api/upload 上传并解析文档，获取 document_id
+    
+    进度推送：通过 SSE 端点 /api/progress/{document_id} 获取实时进度
     """
     try:
         # 检查 LLM 是否可用
@@ -294,16 +351,29 @@ async def extract_facts_by_id(document_id: str):
                 status_code=400,
                 detail="文档内容为空或格式错误"
             )
+        
+        # 初始化进度会话
+        progress_manager.create_session(document_id)
+        await progress_manager.update_progress(
+            document_id,
+            stage=ProgressStage.EXTRACT_FACTS,
+            stage_label="提取事实",
+            current=0,
+            total=len(sections),
+            message="准备开始提取事实...",
+            sub_message=f"文档: {filename}"
+        )
             
         logger.info(f"开始基于ID提取事实: {filename}, 文档ID: {document_id}")
         
-        # 提取事实
+        # 提取事实（带进度上报）
         try:
             extraction_result = await fact_extractor.extract_from_document(
                 document_id=document_id,
                 sections=sections,
                 filename=filename,
-                save_to_redis=True
+                save_to_redis=True,
+                report_progress=True
             )
         except Exception as e:
             logger.error(f"事实提取失败: {str(e)}")
@@ -393,6 +463,8 @@ async def detect_conflicts(document_id: str):
     
     Returns:
         冲突检测结果，包含冲突列表和统计信息
+        
+    进度推送：通过 SSE 端点 /api/progress/{document_id} 获取实时进度
     """
     try:
         # 检查 LLM 是否可用
@@ -412,7 +484,7 @@ async def detect_conflicts(document_id: str):
         
         logger.info(f"开始冲突检测: 文档 {document_id}, 共 {len(facts)} 条事实")
         
-        # 执行冲突检测
+        # 执行冲突检测（带进度上报）
         # 优化策略：
         # - 禁用 LSH（LSH基于文本相似度，会漏掉数值/时间冲突）
         # - 使用结构化字段驱动的智能比对（主体/谓词/数值/时间/极性）
@@ -424,7 +496,8 @@ async def detect_conflicts(document_id: str):
                 facts=facts,
                 save_to_redis=True,
                 use_lsh=False,
-                max_pairs=300
+                max_pairs=300,
+                report_progress=True
             )
         except Exception as e:
             logger.error(f"冲突检测失败: {str(e)}")

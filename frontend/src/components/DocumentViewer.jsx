@@ -1,7 +1,7 @@
-import React, { useMemo } from 'react';
-import { FileText } from 'lucide-react';
+import React, { useMemo, useCallback } from 'react';
+import { FileText, ExternalLink } from 'lucide-react';
 
-export default function DocumentViewer({ sections, conflicts, verifications }) {
+export default function DocumentViewer({ sections, conflicts, verifications, onHighlightClick }) {
     if (!sections || sections.length === 0) return (
         <div className="card h-full flex items-center justify-center text-slate-400">
             <div className="text-center">
@@ -11,34 +11,57 @@ export default function DocumentViewer({ sections, conflicts, verifications }) {
         </div>
     );
 
-    // 预处理高亮区域
+    // 预处理高亮区域，同时记录关联的 conflict_id 或 fact_id
     const highlightMap = useMemo(() => {
-        const map = new Map(); // Key: Original Text Snippet -> Type
+        const map = new Map(); // Key: Original Text Snippet -> { type, id }
 
         // 1. 冲突检测高亮 (Amber)
         conflicts?.forEach(c => {
-            if (c.fact_a?.original_text) map.set(c.fact_a.original_text.trim(), 'conflict');
-            if (c.fact_b?.original_text) map.set(c.fact_b.original_text.trim(), 'conflict');
+            if (c.fact_a?.original_text) {
+                map.set(c.fact_a.original_text.trim(), { 
+                    type: 'conflict', 
+                    id: c.conflict_id,
+                    factId: c.fact_a.fact_id
+                });
+            }
+            if (c.fact_b?.original_text) {
+                map.set(c.fact_b.original_text.trim(), { 
+                    type: 'conflict', 
+                    id: c.conflict_id,
+                    factId: c.fact_b.fact_id
+                });
+            }
         });
 
         // 2. 事实校验错误高亮 (Red) - 覆盖冲突高亮如果重叠（通常校验错误更严重）
         verifications?.forEach(v => {
             if (v.is_supported === false && v.original_fact?.original_text) {
-                map.set(v.original_fact.original_text.trim(), 'error');
+                map.set(v.original_fact.original_text.trim(), { 
+                    type: 'error', 
+                    id: v.original_fact.fact_id,
+                    factId: v.original_fact.fact_id
+                });
             }
         });
 
         return map;
     }, [conflicts, verifications]);
 
+    // 处理高亮点击
+    const handleClick = useCallback((highlightInfo) => {
+        if (onHighlightClick && highlightInfo) {
+            onHighlightClick(highlightInfo.type, highlightInfo.id);
+        }
+    }, [onHighlightClick]);
+
     // 简单的高亮渲染函数
     // 注意：这种基于字符串替换的方法在复杂文档中可能不完美（如重复句子），但在 Demo 场景下足够有效
     const renderHighlightedText = (text) => {
         if (!text) return null;
         
-        let parts = [{ text, type: 'normal' }];
+        let parts = [{ text, type: 'normal', info: null }];
 
-        highlightMap.forEach((type, searchStr) => {
+        highlightMap.forEach((info, searchStr) => {
             if (!searchStr || searchStr.length < 5) return; // 忽略太短的匹配防止误伤
 
             const newParts = [];
@@ -50,9 +73,9 @@ export default function DocumentViewer({ sections, conflicts, verifications }) {
 
                 const fragments = part.text.split(searchStr);
                 fragments.forEach((fragment, i) => {
-                    if (fragment) newParts.push({ text: fragment, type: 'normal' });
+                    if (fragment) newParts.push({ text: fragment, type: 'normal', info: null });
                     if (i < fragments.length - 1) {
-                        newParts.push({ text: searchStr, type: type });
+                        newParts.push({ text: searchStr, type: info.type, info: info });
                     }
                 });
             });
@@ -61,14 +84,36 @@ export default function DocumentViewer({ sections, conflicts, verifications }) {
 
         return parts.map((part, i) => {
             if (part.type === 'conflict') {
-                return <mark key={i} className="bg-amber-200 text-amber-900 rounded px-1 cursor-help group relative" title="检测到前后矛盾">
-                    {part.text}
-                </mark>;
+                return (
+                    <mark 
+                        key={i} 
+                        className="bg-amber-200 text-amber-900 rounded px-1 cursor-pointer hover:bg-amber-300 transition-colors group relative"
+                        title="点击查看冲突详情"
+                        onClick={() => handleClick(part.info)}
+                    >
+                        {part.text}
+                        <span className="absolute -top-6 left-1/2 -translate-x-1/2 bg-amber-700 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+                            <ExternalLink className="inline w-3 h-3 mr-1" />
+                            点击跳转到冲突
+                        </span>
+                    </mark>
+                );
             }
             if (part.type === 'error') {
-                return <mark key={i} className="bg-red-200 text-red-900 rounded px-1 cursor-help border-b-2 border-red-400" title="联网校验：事实有误">
-                    {part.text}
-                </mark>;
+                return (
+                    <mark 
+                        key={i} 
+                        className="bg-red-200 text-red-900 rounded px-1 cursor-pointer hover:bg-red-300 transition-colors border-b-2 border-red-400 group relative"
+                        title="点击查看验证详情"
+                        onClick={() => handleClick(part.info)}
+                    >
+                        {part.text}
+                        <span className="absolute -top-6 left-1/2 -translate-x-1/2 bg-red-700 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+                            <ExternalLink className="inline w-3 h-3 mr-1" />
+                            点击跳转到验证
+                        </span>
+                    </mark>
+                );
             }
             return <span key={i}>{part.text}</span>;
         });
@@ -83,12 +128,12 @@ export default function DocumentViewer({ sections, conflicts, verifications }) {
                 </h3>
                 <div className="flex gap-4 text-xs">
                     <div className="flex items-center gap-1">
-                        <span className="w-3 h-3 bg-amber-200 rounded"></span>
-                        <span className="text-slate-600">前后矛盾</span>
+                        <span className="w-3 h-3 bg-amber-200 rounded cursor-pointer"></span>
+                        <span className="text-slate-600">前后矛盾 (可点击)</span>
                     </div>
                     <div className="flex items-center gap-1">
-                        <span className="w-3 h-3 bg-red-200 border-b-2 border-red-400 rounded"></span>
-                        <span className="text-slate-600">事实谬误</span>
+                        <span className="w-3 h-3 bg-red-200 border-b-2 border-red-400 rounded cursor-pointer"></span>
+                        <span className="text-slate-600">事实谬误 (可点击)</span>
                     </div>
                 </div>
             </div>
