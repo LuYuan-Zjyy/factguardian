@@ -169,8 +169,9 @@ def test_text_pipeline(file_path):
 
     conflict_data = conflict_resp.json()
     conflicts = conflict_data.get("conflicts", [])
+    repetitions = conflict_data.get("repetitions", [])
     conflicts_found = conflict_data.get("conflicts_found", len(conflicts))
-    print_success(f"冲突检测完成！发现 {conflicts_found} 个冲突\n")
+    print_success(f"冲突检测完成！发现 {conflicts_found} 个冲突，{len(repetitions)} 个重复片段\n")
 
     print_header("冲突检测报告")
     if not conflicts:
@@ -193,6 +194,25 @@ def test_text_pipeline(file_path):
             print(f"    位置: {fact_a.get('location', '')}")
             print(f"  事实B: [{fact_b.get('type', '未知')}] {fact_b.get('content', '')}")
             print(f"    位置: {fact_b.get('location', '')}\n")
+            
+    # 7. 重复内容检测 (独立模块)
+    print_step(5, "重复核心内容检测")
+    if not repetitions:
+        print(f"  {Colors.GREEN}未发现高频重复核心内容{Colors.RESET}\n")
+    else:
+        for idx, rep in enumerate(repetitions, 1):
+            # 重复内容结构在 conflict_detector.py 中被定义为了冲突格式 (fact_a=source, fact_b=stats)
+            # 我们需要适配这个格式进行展示，或者后端直接传回原始结构。
+            # 查看后端代码，_detect_repetitions 返回的是冲突对象格式
+            
+            content = rep.get("fact_a", {}).get("content", "")
+            count_info = rep.get("fact_b", {}).get("content", "")
+            explanation = rep.get("explanation", "")
+            
+            print(f"{Colors.BOLD}【重复片段 {idx}】{Colors.RESET}")
+            print(f"  {Colors.YELLOW}核心文本:{Colors.RESET} {content}")
+            print(f"  {Colors.RED}统计信息:{Colors.RESET} {count_info}")
+            print(f"  详细说明: {explanation}\n")
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:

@@ -85,71 +85,10 @@ export default function FunLoading({
                     </div>
                 </div>
 
-                {/* 阶段进度指示器 */}
-                <div className="flex justify-center items-center gap-2 mb-6">
-                    {stages.map((stage, idx) => {
-                        const config = STAGE_CONFIG[stage];
-                        const isCompleted = completedStages.includes(stage);
-                        const isCurrent = currentStage === stage;
-                        
-                        return (
-                            <React.Fragment key={stage}>
-                                <div className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-300
-                                    ${isCompleted ? 'bg-green-100 text-green-700' : 
-                                      isCurrent ? 'bg-brand-100 text-brand-700 ring-2 ring-brand-300 animate-pulse' : 
-                                      'bg-slate-100 text-slate-400'}`}
-                                >
-                                    {isCompleted ? (
-                                        <CheckCircle2 className="w-3.5 h-3.5" />
-                                    ) : (
-                                        <span>{config.icon}</span>
-                                    )}
-                                    <span>{config.label}</span>
-                                </div>
-                                {idx < stages.length - 1 && (
-                                    <div className={`w-6 h-0.5 ${isCompleted ? 'bg-green-300' : 'bg-slate-200'}`}></div>
-                                )}
-                            </React.Fragment>
-                        );
-                    })}
-                </div>
-
                 {/* 核心进度提示 */}
-                <h3 className="text-lg font-bold text-slate-800 mb-1 min-h-[1.5rem]">
-                    {progress?.message || progressText}
+                <h3 className="text-xl font-bold text-slate-800 mb-2 min-h-[1.75rem]">
+                    {progressText}
                 </h3>
-                
-                {/* 子消息 */}
-                {progress?.sub_message && (
-                    <p className="text-sm text-slate-500 mb-3 truncate max-w-full">
-                        {progress.sub_message}
-                    </p>
-                )}
-
-                {/* 真实进度条 */}
-                <div className="w-full bg-slate-100 rounded-full h-3 mb-2 overflow-hidden relative">
-                    {progress && totalSteps > 0 ? (
-                        // 真实进度
-                        <div 
-                            className="h-full bg-gradient-to-r from-brand-500 to-purple-500 transition-all duration-500 ease-out rounded-full"
-                            style={{ width: `${Math.min(realProgress, 100)}%` }}
-                        >
-                            <div className="absolute inset-0 bg-white/20 animate-shimmer"></div>
-                        </div>
-                    ) : (
-                        // 虚假进度动画（无真实进度时）
-                        <div className="h-full bg-gradient-to-r from-brand-400 via-purple-400 to-brand-600 animate-progress w-full origin-left"></div>
-                    )}
-                </div>
-
-                {/* 进度数字 */}
-                {progress && totalSteps > 0 && (
-                    <div className="flex justify-between text-xs text-slate-500 mb-4">
-                        <span>{currentStep} / {totalSteps}</span>
-                        <span>{realProgress.toFixed(1)}%</span>
-                        <span>已用时: {formatTime(elapsedTime)}</span>
-                    </div>
-                )}
 
                 {/* 趣味语录 */}
                 <div className="h-8 flex items-center justify-center mt-4">
