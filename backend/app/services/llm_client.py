@@ -246,19 +246,27 @@ verifiable_type 判定规则（普适标准，适用于所有类型文本）：
         """解析 LLM 返回的事实数据"""
         try:
             # 尝试提取 JSON 内容
-            response = response.strip()
+            content_to_parse = response.strip()
             
-            # 移除可能的 markdown 代码块
-            if response.startswith("```json"):
-                response = response[7:]
-            elif response.startswith("```"):
-                response = response[3:]
-            if response.endswith("```"):
-                response = response[:-3]
+            # Robust JSON extraction (Handle potential model chatter/CoT)
+            json_start = content_to_parse.find("```json")
+            if json_start != -1:
+                json_start += 7
+                json_end = content_to_parse.find("```", json_start)
+                if json_end != -1:
+                    content_to_parse = content_to_parse[json_start:json_end]
+                else:
+                    content_to_parse = content_to_parse[json_start:]
+            else:
+                # Fallback: Find outer list structure
+                start_idx = content_to_parse.find("[")
+                end_idx = content_to_parse.rfind("]")
+                if start_idx != -1 and end_idx != -1:
+                    content_to_parse = content_to_parse[start_idx:end_idx+1]
             
-            response = response.strip()
+            content_to_parse = content_to_parse.strip()
             
-            facts = json.loads(response)
+            facts = json.loads(content_to_parse)
             
             if not isinstance(facts, list):
                 facts = [facts]

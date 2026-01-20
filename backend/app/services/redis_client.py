@@ -43,7 +43,25 @@ class RedisClient:
         self._mem_conflicts = _SHARED_MEM_CONFLICTS
         self._initialized = True
         logger.info("RedisClient 单例初始化完成")
-    
+        
+        # 立即检查连接状态，提前预警环境问题
+        try:
+            # Create a temporary client for check
+            check_client = redis.Redis(host=self.host, port=self.port, db=self.db, socket_timeout=1)
+            check_client.ping()
+            logger.info(f"Redis 连接检查通过: {self.host}:{self.port}")
+            check_client.close()
+        except Exception as e:
+            logger.warning(f"Redis 连接初始化检查失败: {e}")
+            if self.host == "redis" and "getaddrinfo failed" in str(e):
+                logger.critical("""
+【环境配置严重警告】
+检测到 'redis' 主机名无法解析。
+当前运行环境似乎不符合‘云原生’部署要求（未使用 docker-compose 网络）。
+系统将降级使用进程内内存（Memory Fallback），但这违反了‘使用Redis作为统一事实黑板’的设计要求。
+请必须使用 `docker-compose up` 启动服务以满足工程标准。
+""")
+
     @property
     def client(self) -> redis.Redis:
         """获取 Redis 客户端（延迟连接）"""

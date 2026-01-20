@@ -15,6 +15,8 @@ services:
       - REDIS_DB=0
       - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
       - DEEPSEEK_BASE_URL=${DEEPSEEK_BASE_URL:-https://api.deepseek.com}
+      - DOUBAO_API_KEY=${DOUBAO_API_KEY}
+      - DOUBAO_ENDPOINT=${DOUBAO_ENDPOINT}
     depends_on:
       - redis
     restart: unless-stopped
