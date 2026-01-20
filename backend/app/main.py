@@ -482,6 +482,10 @@ async def detect_conflicts(document_id: str):
                 detail=f"文档 {document_id} 不存在或已过期，请先使用 /api/extract-facts 提取事实"
             )
         
+        # 获取文档元数据（包含章节信息）用于重复检测
+        doc_data = redis_client.get_document_metadata(document_id)
+        sections = doc_data.get('sections', []) if doc_data else []
+        
         logger.info(f"开始冲突检测: 文档 {document_id}, 共 {len(facts)} 条事实")
         
         # 执行冲突检测（带进度上报）
@@ -497,7 +501,8 @@ async def detect_conflicts(document_id: str):
                 save_to_redis=True,
                 use_lsh=False,
                 max_pairs=300,
-                report_progress=True
+                report_progress=True,
+                sections=sections
             )
         except Exception as e:
             logger.error(f"冲突检测失败: {str(e)}")
@@ -515,6 +520,7 @@ async def detect_conflicts(document_id: str):
             "total_comparisons": result["total_comparisons"],
             "conflicts_found": result["conflicts_found"],
             "conflicts": result["conflicts"],
+            "repetitions": result.get("repetitions", []),  # 透传重复内容检测结果
             "statistics": result["statistics"],
             "saved_to_redis": result.get("saved_to_redis", False)
         }
@@ -701,7 +707,8 @@ async def analyze_document(file: UploadFile = File(...)):
             conflict_result = await conflict_detector.detect_conflicts(
                 document_id=document_id,
                 facts=extraction_result['facts'],
-                save_to_redis=True
+                save_to_redis=True,
+                sections=parse_result['sections']
             )
         except Exception as e:
             logger.error(f"冲突检测失败: {str(e)}")

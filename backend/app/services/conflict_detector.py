@@ -47,10 +47,11 @@ class ConflictDetector:
         save_to_redis: bool = True,
         use_lsh: bool = False,
         max_pairs: int = 300,
-        report_progress: bool = True
+        report_progress: bool = True,
+        sections: List[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
         """
-        检测文档中事实之间的冲突
+        检测文档中事实之间的冲突及内容重复
         
         Args:
             document_id: 文档ID
@@ -59,6 +60,7 @@ class ConflictDetector:
             use_lsh: 是否使用 LSH 预过滤（默认False，因LSH会漏掉数值/时间冲突）
             max_pairs: 最大比对对数（默认300，结构化字段智能过滤后的高风险对）
             report_progress: 是否报告进度
+            sections: 文档章节列表，用于检测重复段落（可选）
         
         Returns:
             冲突检测结果
@@ -175,9 +177,15 @@ class ConflictDetector:
                     conflicts.append(conflict)
                     logger.info(f"发现冲突: {conflict['conflict_type']} - {conflict['explanation'][:50]}")
         
+        # 检测重复内容
+        repetitions = []
+        if sections:
+            repetitions = self._detect_repetitions(sections)
+        
         # 按严重程度排序
-        severity_order = {"高": 0, "中": 1, "低": 2, "无": 3}
-        conflicts.sort(key=lambda x: severity_order.get(x.get("severity", "中"), 1))
+        severity_map = {"高": 0, "中": 1, "低": 2, "无": 3}
+        # 确保 severity 字段存在且在 map 中，否则默认为 "中"
+        conflicts.sort(key=lambda x: severity_map.get(x.get("severity", "中"), 1))
         
         # 统计信息
         severity_stats = {}
@@ -195,6 +203,7 @@ class ConflictDetector:
             "total_comparisons": comparison_count,
             "conflicts_found": len(conflicts),
             "conflicts": conflicts,
+            "repetitions": repetitions,  # 单独返回重复内容
             "statistics": {
                 "by_severity": severity_stats,
                 "by_type": type_stats
@@ -424,6 +433,59 @@ class ConflictDetector:
             "无法与", "无法对接", "仍需线下排队"
         ])
         
+        # --- 新增通用企业年报场景 ---
+        
+        # 1. 总部地点冲突
+        candidates += pairs_for([
+            "总部位于", "总部设在", "注册地"
+        ], [
+            "总部", "地点", "位于", "迁往"
+        ])
+
+        # 2. 裁员承诺 vs 裁员事实
+        candidates += pairs_for([
+            "零裁员", "不裁员", "增加员工", "招聘"
+        ], [
+            "裁员", "裁撤", "离职", "减少岗位", "重组"
+        ])
+
+        # 3. 财务数据冲突 (营收/利润)
+        candidates += pairs_for([
+            "营收", "收入", "利润", "亏损", "财务", "业绩"
+        ], [
+            "营收", "收入", "利润", "亏损", "财务", "业绩"
+        ])
+
+        # 4. 环保承诺 vs 排放事实
+        candidates += pairs_for([
+            "零排放", "碳中和", "环保", "绿色", "减少排放"
+        ], [
+            "排放增加", "污染", "未达到", "推迟", "增加废弃物"
+        ])
+
+        # 5. 产地冲突 (制造地)
+        candidates += pairs_for([
+            "制造", "产地", "生产线", "工厂"
+        ], [
+            "制造", "产地", "生产线", "工厂", "转移"
+        ])
+
+        # 6. 趋势矛盾 (定性描述 vs 定量数据)
+        # 例如："稳步增长" vs "下降了"
+        candidates += pairs_for([
+            "增长", "上升", "提高", "增加", "攀升"
+        ], [
+            "下降", "下滑", "减少", "降低", "缩减", "跌落"
+        ])
+
+        # 7. 合规与安全矛盾
+        # 例如："从未发生泄露" vs "违规传输"
+        candidates += pairs_for([
+            "未发生", "零事故", "合规", "遵守", "安全", "保护"
+        ], [
+            "泄露", "违规", "事故", "失败", "违反", "被罚"
+        ])
+        
         # 前期筹备：全部完成 vs 未办理施工许可证/未办结
         candidates += pairs_for([
             "前期筹备工作已全部完成"
@@ -578,6 +640,83 @@ class ConflictDetector:
         except Exception as e:
             logger.error(f"处理冲突检测响应出错: {str(e)}")
             return None
+
+    def _detect_repetitions(self, sections: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        检测文档中的高频重复段落（完全匹配或高度相似）
+        
+        Args:
+            sections: 章节列表
+            
+        Returns:
+            重复内容作为冲突对象的列表
+        """
+        if not sections:
+            return []
+            
+        # Map: normalized_content -> {original_content, count, locations: []}
+        content_map = {}
+        
+        for section in sections:
+            sec_title = section.get('title', '未知章节')
+            content = section.get('content', '')
+            if not content:
+                continue
+                
+            # 改进分割逻辑：不仅按换行符，还按句子结束符分割
+            # 这样可以捕获嵌入在段落中的重复核心语句
+            # 使用正则是最好的: re.split(r'[。！？\n.!?;]+', content)
+            segments = re.split(r'[。！？\n.!?;]+', content)
+            
+            for p in segments:
+                # 归一化：去除两端空白
+                normalized = p.strip()
+                # 忽略短句（标题、短语等），通常核心段落长度较长
+                # 调低阈值到 20 以捕获中等长度的标语/使命
+                if len(normalized) < 20:
+                    continue
+                    
+                if normalized not in content_map:
+                    content_map[normalized] = {
+                        'content': normalized,
+                        'count': 0,
+                        'locations': []
+                    }
+                
+                content_map[normalized]['count'] += 1
+                content_map[normalized]['locations'].append(sec_title)
+
+        repetitions = []
+        # 筛选重复次数 >= 3 的段落
+        for content, data in content_map.items():
+            if data['count'] >= 3:
+                # 整理位置信息
+                unique_locs = sorted(list(set(data['locations'])))
+                
+                rep_entry = {
+                    "conflict_id": f"rep_{abs(hash(content))}",
+                    "has_conflict": True,
+                    "conflict_type": "核心高频重复",
+                    "severity": "中", 
+                    "fact_a": {
+                        "fact_id": "rep_source",
+                        "type": "段落内容",
+                        "content": content[:100] + "..." if len(content) > 100 else content,
+                        "location": {"section_title": unique_locs[0] if unique_locs else "未知"}
+                    },
+                    "fact_b": {
+                        "fact_id": "rep_target",
+                        "type": "重复统计",
+                        "content": f"重复次数: {data['count']}",
+                        "location": {"section_title": "全文多处"}
+                    },
+                    "explanation": f"检测到核心段落高频重复（出现 {data['count']} 次）。\n内容摘要：“{content[:30]}...”\n出现位置：{', '.join(unique_locs[:5])}{' 等' if len(unique_locs)>5 else ''}。",
+                    "confidence": 1.0
+                }
+                repetitions.append(rep_entry)
+                logger.info(f"发现重复段落: {data['count']} 次 - {content[:20]}...")
+                
+        return repetitions
     
     def get_conflicts(self, document_id: str) -> Optional[List[Dict[str, Any]]]:
         """从 Redis 获取已保存的冲突"""

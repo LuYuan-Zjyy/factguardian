@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Layout, FileText, CheckCircle, Smartphone, Globe, ShieldAlert, History, Download, Trash2 } from 'lucide-react';
 import UploadSection from './components/UploadSection';
 import ConflictList from './components/ConflictList';
+import RepetitionList from './components/RepetitionList';
 import VerificationResult from './components/VerificationResult';
 import DocumentViewer from './components/DocumentViewer';
 import FunLoading from './components/FunLoading';
@@ -25,6 +26,7 @@ function App() {
   const [data, setData] = useState({
     docInfo: null,
     conflicts: [],
+    repetitions: [],
     verifications: [],
     stats: {}
   });
@@ -99,10 +101,12 @@ function App() {
       const resultData = {
         docInfo: uploadRes,
         conflicts: conflictRes.conflicts || [],
+        repetitions: conflictRes.repetitions || [],
         verifications: verifyRes.verifications || [],
         stats: {
           totalFacts: factRes.total_facts,
           conflictCount: conflictRes.conflicts_found,
+          repetitionCount: (conflictRes.repetitions || []).length,
           verifyFail: verifyRes.statistics?.unsupported || 0
         }
       };
@@ -261,7 +265,7 @@ function App() {
         {status === 'done' && (
           <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
             {/* Stats Overview */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
               <div className="card border-l-4 border-l-blue-500">
                 <div className="text-slate-500 text-sm font-medium uppercase tracking-wider">提取事实</div>
                 <div className="text-3xl font-bold text-slate-800 mt-1">{data.stats.totalFacts}</div>
@@ -271,6 +275,11 @@ function App() {
                 <div className="text-slate-500 text-sm font-medium uppercase tracking-wider">冲突矛盾</div>
                 <div className="text-3xl font-bold text-slate-800 mt-1">{data.stats.conflictCount}</div>
                 <div className="text-xs text-slate-400 mt-2">{data.stats.conflictCount > 0 ? '需人工复核' : '全文档一致'}</div>
+              </div>
+              <div className={`card border-l-4 ${data.stats.repetitionCount > 0 ? 'border-l-purple-500' : 'border-l-green-500'}`}>
+                <div className="text-slate-500 text-sm font-medium uppercase tracking-wider">重复核心</div>
+                <div className="text-3xl font-bold text-slate-800 mt-1">{data.stats.repetitionCount}</div>
+                <div className="text-xs text-slate-400 mt-2">{data.stats.repetitionCount > 0 ? '高频重复检测' : '无明显重复'}</div>
               </div>
               <div className={`card border-l-4 ${data.stats.verifyFail > 0 ? 'border-l-red-500' : 'border-l-green-500'}`}>
                 <div className="text-slate-500 text-sm font-medium uppercase tracking-wider">事实谬误</div>
@@ -332,7 +341,14 @@ function App() {
                    </div>
                 )}
                 
-                {/* 3. Verifications */}
+                {/* 3. Repetitions */}
+                {data.stats.repetitionCount > 0 && (
+                   <div id="repetitions">
+                      <RepetitionList repetitions={data.repetitions} />
+                   </div>
+                )}
+                
+                {/* 4. Verifications */}
                 <div id="verifications">
                     <VerificationResult 
                       verifications={data.verifications}
