@@ -179,11 +179,11 @@ Docker 容器成功启动，访问 `http://localhost:8000/docs` 能看到 FastAPI Swagger 文
 **功能：** 上传参考文档，检测主文档与参考内容的相似度/引用关系
 
 **任务清单：**
-- [ ] 扩展上传 API，支持多文件（主文档 + 参考文档）
-- [ ] 实现语义相似度计算
+- [x] 扩展上传 API，支持多文件（主文档 + 参考文档）
+- [x] 实现语义相似度计算
   - 方案A：使用 OpenAI Embeddings + 余弦相似度
   - 方案B：直接用 LLM 判断段落相似性
-- [ ] 设计对比 Prompt
+- [x] 设计对比 Prompt
   ```python
   COMPARISON_PROMPT = """
   主文档段落：{main_text}
@@ -196,12 +196,12 @@ Docker 容器成功启动，访问 `http://localhost:8000/docs` 能看到 FastAPI Swagger 文
   3. 如果是引用，是否需要标注来源
   """
   ```
-- [ ] 实现参考对比 API
+- [x] 实现参考对比 API
   ```python
   @app.post("/api/compare-references")
   async def compare_with_reference(main_doc_id: str, ref_doc_ids: List[str])
   ```
-- [ ] 在结果中标注"相似段落"及其来源
+- [x] 在结果中标注"相似段落"及其来源
 
 **验收标准：**
 能检测出明显的改写段落，相似度判断基本准确
@@ -210,13 +210,13 @@ Docker 容器成功启动，访问 `http://localhost:8000/docs` 能看到 FastAPI Swagger 文
 **功能：** 上传框架图，检测文档描述与图片的一致性
 
 **任务清单：**
-- [ ] 集成 OCR/图片理解 API（Claude Vision / GPT-4V）
-- [ ] 实现图片内容提取
+- [x] 集成 OCR/图片理解 API（Claude Vision / GPT-4V）
+- [x] 实现图片内容提取
   ```python
   @app.post("/api/extract-from-image")
   async def extract_image_content(file: UploadFile)
   ```
-- [ ] 设计图文对比 Prompt
+- [x] 设计图文对比 Prompt
   ```python
   IMAGE_TEXT_COMPARISON = """
   图片描述（由 AI 提取）：{image_description}
@@ -372,7 +372,7 @@ Dashboard 直观展示文档质量，有助于快速定位问题章节
 
 ### 模块6.2：完善文档
 **任务清单：**
-- [ ] 编写详细 README
+- [x] 编写详细 README
   - 项目介绍
   - 快速开始（Docker 一键部署）
   - API 文档链接
@@ -390,6 +390,10 @@ Dashboard 直观展示文档质量，有助于快速定位问题章节
 
 ### 模块6.3：代码规范检查
 **任务清单：**
+- [x] 编写自动化集成测试脚本（test_auto.py）
+  - 支持命令行参数区分测试模式（默认/图文对比/参考对比）
+  - 覆盖所有核心API端点测试
+  - 提供详细的测试报告输出
 - [ ] 运行代码格式化工具（Black, isort）
 - [ ] 添加类型注解（mypy）
 - [ ] 编写单元测试（pytest）
@@ -485,9 +489,10 @@ docker-compose up --build
 
 ## 最终交付清单
 
-- [ ] GitHub 仓库（包含 Dockerfile、README）
+- [x] GitHub 仓库（包含 Dockerfile、README）
+- [x] 可运行的 Docker 环境
+- [x] 测试数据及结果截图（test_data_simple.txt, document.docx, architecture.png, reference1.docx）
+- [x] 自动化测试脚本（test_auto.py）及测试报告
 - [ ] 演示视频（3-5分钟，含架构讲解）
 - [ ] 技术文档（架构图、分工、Prompt 设计）
-- [ ] 可运行的 Docker 环境
-- [ ] 测试数据及结果截图
 
