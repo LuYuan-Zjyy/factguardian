@@ -1,7 +1,7 @@
 import React, { useMemo, useCallback } from 'react';
 import { FileText, ExternalLink } from 'lucide-react';
 
-export default function DocumentViewer({ sections, conflicts, verifications, onHighlightClick }) {
+export default function DocumentViewer({ sections, conflicts, repetitions, verifications, onHighlightClick }) {
     if (!sections || sections.length === 0) return (
         <div className="card h-full flex items-center justify-center text-slate-400">
             <div className="text-center">
@@ -33,7 +33,27 @@ export default function DocumentViewer({ sections, conflicts, verifications, onH
             }
         });
 
-        // 2. 事实校验错误高亮 (Red) - 覆盖冲突高亮如果重叠（通常校验错误更严重）
+        // 2. 重复段落高亮 (Purple)
+        repetitions?.forEach((r, idx) => {
+             // 假设 repetitions 结构类似于 { fact_a: {...}, fact_b: {...}, explanation: ... }
+             // 使用 fact_a.original_text 和 fact_b.original_text
+             if (r.fact_a?.original_text) {
+                 map.set(r.fact_a.original_text.trim(), {
+                     type: 'repetition',
+                     id: `rep-${idx}`, // 使用索引作为临时ID
+                     info: r
+                 });
+             }
+             if (r.fact_b?.original_text) {
+                 map.set(r.fact_b.original_text.trim(), {
+                     type: 'repetition',
+                     id: `rep-${idx}`,
+                     info: r
+                 });
+             }
+        });
+
+        // 3. 事实校验错误高亮 (Red) - 覆盖冲突高亮如果重叠（通常校验错误更严重）
         verifications?.forEach(v => {
             if (v.is_supported === false && v.original_fact?.original_text) {
                 map.set(v.original_fact.original_text.trim(), { 
@@ -95,6 +115,22 @@ export default function DocumentViewer({ sections, conflicts, verifications, onH
                         <span className="absolute -top-6 left-1/2 -translate-x-1/2 bg-amber-700 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
                             <ExternalLink className="inline w-3 h-3 mr-1" />
                             点击跳转到冲突
+                        </span>
+                    </mark>
+                );
+            }
+            if (part.type === 'repetition') {
+                return (
+                    <mark 
+                        key={i} 
+                        className="bg-purple-200 text-purple-900 rounded px-1 cursor-pointer hover:bg-purple-300 transition-colors group relative"
+                        title="点击查看重复详情"
+                        onClick={() => handleClick(part.info)}
+                    >
+                        {part.text}
+                        <span className="absolute -top-6 left-1/2 -translate-x-1/2 bg-purple-700 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+                            <ExternalLink className="inline w-3 h-3 mr-1" />
+                            重复段落
                         </span>
                     </mark>
                 );

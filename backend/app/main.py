@@ -484,8 +484,9 @@ async def detect_conflicts(document_id: str):
         
         # 获取文档元数据（包含章节信息）用于重复检测
         doc_data = redis_client.get_document_metadata(document_id)
-        sections = doc_data.get('sections', []) if doc_data else []
         
+        sections = doc_data.get('sections', []) if doc_data else []
+
         logger.info(f"开始冲突检测: 文档 {document_id}, 共 {len(facts)} 条事实")
         
         # 执行冲突检测（带进度上报）

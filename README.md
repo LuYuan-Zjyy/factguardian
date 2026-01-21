@@ -130,6 +130,7 @@ docker-compose up -d
 # 启动特定服务
 docker-compose up backend
 ```
+启动后，可直接通过 http://localhost:3000/  访问前端进行测试，或通过 http://localhost:8000/docs 访问后端 API 文档。
 
 ### 服务端点
 
@@ -170,7 +171,9 @@ docker-compose up backend
 - `main.docx`：用于参考对比的主文档
 - `reference1.docx`：用于对比测试的参考文档
 
-### 运行测试
+### 运行测试（python测试）
+
+在启动docker-compose后，进入 `backend/` 目录运行测试脚本：
 
 #### 单文档分析
 

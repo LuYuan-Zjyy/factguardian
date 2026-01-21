@@ -153,12 +153,20 @@ class FactExtractor:
         if save_to_redis:
             try:
                 self.redis.save_facts(document_id, all_facts)
-                self.redis.save_document_metadata(document_id, {
+                
+                # Fetch existing metadata to preserve other fields (like word_count, original text)
+                existing_meta = self.redis.get_document_metadata(document_id) or {}
+                
+                # Update with new extraction stats
+                existing_meta.update({
                     "filename": filename,
                     "total_facts": len(all_facts),
                     "section_count": len(sections),
-                    "statistics": stats
+                    "statistics": stats,
+                    "sections": sections # Ensure sections are preserved/updated
                 })
+                
+                self.redis.save_document_metadata(document_id, existing_meta)
                 result["saved_to_redis"] = True
             except Exception as e:
                 logger.error(f"保存到 Redis 失败: {str(e)}")
