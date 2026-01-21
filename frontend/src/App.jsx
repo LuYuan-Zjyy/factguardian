@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Layout, FileText, CheckCircle, Smartphone, Globe, ShieldAlert, History, Download, Trash2 } from 'lucide-react';
+import { Layout, FileText, CheckCircle, Smartphone, Globe, ShieldAlert, History, Download, Trash2, Image, Files } from 'lucide-react';
 import UploadSection from './components/UploadSection';
 import ConflictList from './components/ConflictList';
 import RepetitionList from './components/RepetitionList';
 import VerificationResult from './components/VerificationResult';
 import DocumentViewer from './components/DocumentViewer';
 import FunLoading from './components/FunLoading';
+import ImageTextComparison from './components/ImageTextComparison';
+import MultiDocComparison from './components/MultiDocComparison';
 import { 
     uploadDocument, 
     extractFacts, 
@@ -19,6 +21,7 @@ import {
 } from './api';
 
 function App() {
+  const [currentTab, setCurrentTab] = useState('single'); // single, image, multi
   const [status, setStatus] = useState('idle'); // idle, uploading, processing, done, error
   const [progressStep, setProgressStep] = useState('');
   const [progress, setProgress] = useState(null); // SSE 进度数据
@@ -32,6 +35,9 @@ function App() {
   });
   const [showHistory, setShowHistory] = useState(false);
   const [history, setHistoryState] = useState([]);
+  const [historyTab, setHistoryTab] = useState('single');
+  const [imageInitialData, setImageInitialData] = useState(null);
+  const [multiInitialData, setMultiInitialData] = useState(null);
   
   // 用于跳转高亮的 ref
   const conflictRefs = useRef({});
@@ -44,6 +50,11 @@ function App() {
   useEffect(() => {
     setHistoryState(getHistory());
   }, []);
+
+  // 刷新历史记录
+  const refreshHistory = () => {
+    setHistoryState(getHistory());
+  };
 
   // 处理高亮点击跳转
   const handleHighlightClick = useCallback((type, id) => {
@@ -114,7 +125,7 @@ function App() {
       setData(resultData);
       
       // 保存到历史记录
-      saveToHistory(resultData);
+      saveToHistory(resultData, 'single');
       setHistoryState(getHistory());
       
       // 取消订阅
@@ -139,18 +150,31 @@ function App() {
 
   // 从历史记录恢复
   const handleRestoreHistory = (record) => {
-    setData({
-      docInfo: { 
-        document_id: record.documentId, 
-        filename: record.filename,
-        sections: [] // 历史记录不保存完整文档内容
-      },
-      conflicts: record.conflicts || [],
-      verifications: record.verifications || [],
-      stats: record.stats || {}
-    });
-    setDocId(record.documentId);
-    setStatus('done');
+    const type = record.type || 'single';
+
+    if (type === 'single') {
+        setData({
+          docInfo: { 
+            document_id: record.documentId, 
+            filename: record.filename,
+            sections: [] 
+          },
+          conflicts: record.conflicts || [],
+          repetitions: record.repetitions || [], // Restore repetitions too
+          verifications: record.verifications || [],
+          stats: record.stats || {}
+        });
+        setDocId(record.documentId);
+        setStatus('done');
+        setCurrentTab('single');
+    } else if (type === 'image') {
+        setImageInitialData(record);
+        setCurrentTab('image');
+    } else if (type === 'multi') {
+        setMultiInitialData(record);
+        setCurrentTab('multi');
+    }
+    
     setShowHistory(false);
   };
 
@@ -177,6 +201,28 @@ function App() {
             </div>
             <h1 className="text-xl font-bold text-slate-800">FactGuardian <span className="text-slate-400 font-normal text-sm ml-2">长文本"事实卫士"</span></h1>
           </div>
+
+           <div className="flex bg-slate-100 p-1 rounded-lg">
+              <button 
+                  onClick={() => setCurrentTab('single')}
+                  className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${currentTab === 'single' ? 'bg-white shadow text-slate-800' : 'text-slate-500 hover:text-slate-700'}`}
+              >
+                  单文档分析
+              </button>
+              <button 
+                  onClick={() => setCurrentTab('image')}
+                  className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all flex items-center gap-1 ${currentTab === 'image' ? 'bg-white shadow text-slate-800' : 'text-slate-500 hover:text-slate-700'}`}
+              >
+                  <Image size={14} /> 图文一致性
+              </button>
+              <button 
+                  onClick={() => setCurrentTab('multi')}
+                  className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all flex items-center gap-1 ${currentTab === 'multi' ? 'bg-white shadow text-slate-800' : 'text-slate-500 hover:text-slate-700'}`}
+              >
+                  <Files size={14} /> 多文档/库
+              </button>
+           </div>
+
           <div className="flex items-center gap-4 text-sm font-medium text-slate-600">
             {/* 历史记录按钮 */}
             <button 
@@ -203,24 +249,34 @@ function App() {
         {/* 历史记录面板 */}
         {showHistory && (
           <div className="mb-6 card animate-in fade-in slide-in-from-top-2 duration-300">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold flex items-center gap-2">
-                <History className="text-brand-600" />
-                历史分析记录
-              </h3>
-              <button 
-                onClick={() => setShowHistory(false)}
-                className="text-slate-400 hover:text-slate-600"
-              >
-                ✕
-              </button>
+
+            {/* History Tabs */}
+            <div className="flex border-b border-slate-200 mb-4">
+                <button 
+                    onClick={() => setHistoryTab('single')}
+                    className={`px-4 py-2 border-b-2 font-medium text-sm transition-colors ${historyTab === 'single' ? 'border-brand-600 text-brand-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+                >
+                    单文档分析
+                </button>
+                <button 
+                    onClick={() => setHistoryTab('image')}
+                    className={`px-4 py-2 border-b-2 font-medium text-sm transition-colors ${historyTab === 'image' ? 'border-brand-600 text-brand-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+                >
+                    图文一致性
+                </button>
+                <button 
+                    onClick={() => setHistoryTab('multi')}
+                    className={`px-4 py-2 border-b-2 font-medium text-sm transition-colors ${historyTab === 'multi' ? 'border-brand-600 text-brand-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+                >
+                    多文档比对
+                </button>
             </div>
             
-            {history.length === 0 ? (
-              <p className="text-slate-500 text-center py-8">暂无历史记录</p>
+            {history.filter(h => (h.type || 'single') === historyTab).length === 0 ? (
+              <p className="text-slate-500 text-center py-8">该分类下暂无历史记录</p>
             ) : (
               <div className="space-y-2 max-h-64 overflow-y-auto">
-                {history.map((record) => (
+                {history.filter(h => (h.type || 'single') === historyTab).map((record) => (
                   <div 
                     key={record.id}
                     onClick={() => handleRestoreHistory(record)}
@@ -228,14 +284,35 @@ function App() {
                   >
                     <div className="flex-1">
                       <div className="font-medium text-slate-800">{record.filename}</div>
-                      <div className="text-xs text-slate-500">
-                        {new Date(record.timestamp).toLocaleString('zh-CN')}
-                        <span className="mx-2">·</span>
-                        {record.stats?.totalFacts || 0} 条事实
-                        <span className="mx-2">·</span>
-                        <span className={record.stats?.conflictCount > 0 ? 'text-amber-600' : 'text-green-600'}>
-                          {record.stats?.conflictCount || 0} 冲突
-                        </span>
+                      <div className="text-xs text-slate-500 flex items-center gap-2">
+                        <span>{new Date(record.timestamp).toLocaleString('zh-CN')}</span>
+                        
+                        {/* Summary Badges based on Type */}
+                        {(record.type === 'single' || !record.type) && (
+                            <>
+                                <span className="mx-1">·</span>
+                                <span>{record.stats?.totalFacts || 0} 事实</span>
+                                <span className={`px-1.5 py-0.5 rounded ${record.stats?.conflictCount > 0 ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>
+                                    {record.stats?.conflictCount || 0} 冲突
+                                </span>
+                            </>
+                        )}
+                        {record.type === 'image' && (
+                            <>
+                                <span className="mx-1">·</span>
+                                <span className={`px-1.5 py-0.5 rounded ${(record.comparisons?.length || 0) > 0 ? 'bg-blue-100 text-blue-600' : 'bg-slate-200'}`}>
+                                    {record.comparisons?.length || 0} 对比项
+                                </span>
+                            </>
+                        )}
+                        {record.type === 'multi' && (
+                            <>
+                                <span className="mx-1">·</span>
+                                <span className="px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-600">
+                                    {(record.similarities?.length || 0)} 相似点
+                                </span>
+                            </>
+                        )}
                       </div>
                     </div>
                     <button
@@ -251,8 +328,11 @@ function App() {
           </div>
         )}
         
-        {/* State: IDLE / UPLOADING */}
-        {(status === 'idle' || status === 'uploading') && (
+        {/* TAB 1: Single Document Analysis */}
+        {currentTab === 'single' && (
+        <>
+            {/* State: IDLE / UPLOADING */}
+            {(status === 'idle' || status === 'uploading') && (
           <UploadSection onUpload={handleUpload} isUploading={status === 'uploading'} />
         )}
 
@@ -296,6 +376,7 @@ function App() {
                 <DocumentViewer 
                     sections={data.docInfo.sections} 
                     conflicts={data.conflicts}
+                    repetitions={data.repetitions}
                     verifications={data.verifications}
                     onHighlightClick={handleHighlightClick}
                 />
@@ -320,12 +401,6 @@ function App() {
                       >
                           <Download size={14} />
                           导出报告
-                      </button>
-                      <button 
-                          onClick={() => { setStatus('idle'); setDocId(null); }}
-                          className="px-3 py-1 bg-slate-700 hover:bg-slate-600 rounded text-xs transition-colors"
-                      >
-                          重新分析
                       </button>
                     </div>
                   </div>
@@ -360,6 +435,26 @@ function App() {
             </div>
           </div>
         )}
+        </>
+        )}
+
+        {/* TAB 2: Image-Text Comparison */}
+        {currentTab === 'image' && (
+          <ImageTextComparison 
+            currentDocId={docId} 
+            initialData={imageInitialData} 
+            onHistoryUpdate={refreshHistory}
+          />
+        )}
+
+        {/* TAB 3: Multi-Doc Comparison */}
+        {currentTab === 'multi' && (
+          <MultiDocComparison 
+            initialData={multiInitialData} 
+            onHistoryUpdate={refreshHistory}
+          />
+        )}
+
       </main>
     </div>
   );

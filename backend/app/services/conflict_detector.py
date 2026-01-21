@@ -652,17 +652,20 @@ class ConflictDetector:
             重复内容作为冲突对象的列表
         """
         if not sections:
+            logger.warning("No sections provided for repetition detection")
             return []
             
         # Map: normalized_content -> {original_content, count, locations: []}
         content_map = {}
+        
+        logger.info(f"Detecting repetitions in {len(sections)} sections")
         
         for section in sections:
             sec_title = section.get('title', '未知章节')
             content = section.get('content', '')
             if not content:
                 continue
-                
+
             # 改进分割逻辑：不仅按换行符，还按句子结束符分割
             # 这样可以捕获嵌入在段落中的重复核心语句
             # 使用正则是最好的: re.split(r'[。！？\n.!?;]+', content)
@@ -685,7 +688,9 @@ class ConflictDetector:
                 
                 content_map[normalized]['count'] += 1
                 content_map[normalized]['locations'].append(sec_title)
-
+        
+        logger.info(f"Processed {len(content_map)} unique segments")
+        
         repetitions = []
         # 筛选重复次数 >= 3 的段落
         for content, data in content_map.items():

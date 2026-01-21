@@ -31,11 +31,11 @@ export const verifyFacts = async (docId) => {
 };
 
 /**
- * è®¢é˜…è¿›åº¦æ›´æ–° (SSE)
- * @param {string} docId - æ–‡æ¡£ID
- * @param {function} onProgress - è¿›åº¦å›žè°ƒå‡½æ•° (progressData) => void
- * @param {function} onError - é”™è¯¯å›žè°ƒå‡½æ•° (error) => void
- * @returns {function} å–æ¶ˆè®¢é˜…å‡½æ•°
+ * ¶©ÔÄ½ø¶È¸üÐÂ (SSE)
+ * @param {string} docId - ÎÄµµID
+ * @param {function} onProgress - ½ø¶È»Øµ÷º¯Êý (progressData) => void
+ * @param {function} onError - ´íÎó»Øµ÷º¯Êý (error) => void
+ * @returns {function} È¡Ïû¶©ÔÄº¯Êý
  */
 export const subscribeProgress = (docId, onProgress, onError) => {
     const eventSource = new EventSource(`/api/progress/${docId}`);
@@ -45,33 +45,33 @@ export const subscribeProgress = (docId, onProgress, onError) => {
             const data = JSON.parse(event.data);
             onProgress(data);
             
-            // å¦‚æžœå®Œæˆï¼Œè‡ªåŠ¨å…³é—­è¿žæŽ¥
+            // Èç¹ûÍê³É£¬×Ô¶¯¹Ø±ÕÁ¬½Ó
             if (data.stage === 'complete') {
                 eventSource.close();
             }
         } catch (e) {
-            console.error('è§£æžè¿›åº¦æ•°æ®å¤±è´¥:', e);
+            console.error('½âÎö½ø¶ÈÊý¾ÝÊ§°Ü:', e);
         }
     };
     
     eventSource.onerror = (error) => {
-        console.error('SSE è¿žæŽ¥é”™è¯¯:', error);
+        console.error('SSE Á¬½Ó´íÎó:', error);
         if (onError) {
             onError(error);
         }
         eventSource.close();
     };
     
-    // è¿”å›žå–æ¶ˆè®¢é˜…å‡½æ•°
+    // ·µ»ØÈ¡Ïû¶©ÔÄº¯Êý
     return () => {
         eventSource.close();
     };
 };
 
 /**
- * è½®è¯¢èŽ·å–è¿›åº¦çŠ¶æ€ï¼ˆSSE å¤‡é€‰æ–¹æ¡ˆï¼‰
- * @param {string} docId - æ–‡æ¡£ID
- * @returns {Promise} è¿›åº¦çŠ¶æ€
+ * ÂÖÑ¯»ñÈ¡½ø¶È×´Ì¬£¨SSE ±¸Ñ¡·½°¸£©
+ * @param {string} docId - ÎÄµµID
+ * @returns {Promise} ½ø¶È×´Ì¬
  */
 export const getProgressStatus = async (docId) => {
     const response = await api.get(`/progress-status/${docId}`);
@@ -79,23 +79,50 @@ export const getProgressStatus = async (docId) => {
 };
 
 /**
- * ä¿å­˜åˆ†æžç»“æžœåˆ°æœ¬åœ°å­˜å‚¨ï¼ˆåŽ†å²è®°å½•ï¼‰
- * @param {object} result - åˆ†æžç»“æžœ
+ * ±£´æ·ÖÎö½á¹ûµ½±¾µØ´æ´¢£¨ÀúÊ·¼ÇÂ¼£©
+ * @param {object} result - ·ÖÎö½á¹û
+ * @param {string} type - ¼ÇÂ¼ÀàÐÍ ('single' | 'image' | 'multi')
  */
-export const saveToHistory = (result) => {
+export const saveToHistory = (result, type = 'single') => {
     const history = JSON.parse(localStorage.getItem('factguardian_history') || '[]');
-    const record = {
+    
+    let record = {
         id: Date.now().toString(),
         timestamp: new Date().toISOString(),
-        filename: result.docInfo?.filename || 'unknown',
-        documentId: result.docInfo?.document_id,
-        stats: result.stats,
-        conflicts: result.conflicts,
-        verifications: result.verifications
+        type: type
     };
+
+    if (type === 'single') {
+        record = {
+            ...record,
+            filename: result.docInfo?.filename || 'unknown',
+            documentId: result.docInfo?.document_id,
+            stats: result.stats,
+            conflicts: result.conflicts,
+            repetitions: result.repetitions || [],
+            verifications: result.verifications
+        };
+    } else if (type === 'image') {
+        record = {
+            ...record,
+            filename: result.image_info?.filename || 'image_analysis',
+            image_info: result.image_info,
+            comparisons: result.comparisons || [],
+            description: result.description,
+            mode: result.mode
+        };
+    } else if (type === 'multi') {
+        record = {
+            ...record,
+            filename: result.main_filename || 'multi_doc_comparison',
+            similarities: result.similarities || [],
+            statistics: result.statistics
+        };
+    }
+
     history.unshift(record);
-    // åªä¿ç•™æœ€è¿‘ 20 æ¡è®°å½•
-    if (history.length > 20) {
+    // Ö»±£Áô×î½ü 50 Ìõ¼ÇÂ¼
+    if (history.length > 50) {
         history.pop();
     }
     localStorage.setItem('factguardian_history', JSON.stringify(history));
@@ -103,16 +130,16 @@ export const saveToHistory = (result) => {
 };
 
 /**
- * èŽ·å–åŽ†å²è®°å½•
- * @returns {Array} åŽ†å²è®°å½•åˆ—è¡¨
+ * »ñÈ¡ÀúÊ·¼ÇÂ¼
+ * @returns {Array} ÀúÊ·¼ÇÂ¼ÁÐ±í
  */
 export const getHistory = () => {
     return JSON.parse(localStorage.getItem('factguardian_history') || '[]');
 };
 
 /**
- * åˆ é™¤åŽ†å²è®°å½•
- * @param {string} id - è®°å½•ID
+ * É¾³ýÀúÊ·¼ÇÂ¼
+ * @param {string} id - ¼ÇÂ¼ID
  */
 export const deleteFromHistory = (id) => {
     const history = JSON.parse(localStorage.getItem('factguardian_history') || '[]');
@@ -122,9 +149,9 @@ export const deleteFromHistory = (id) => {
 };
 
 /**
- * å¯¼å‡ºåˆ†æžæŠ¥å‘Šä¸º JSON
- * @param {object} data - åˆ†æžæ•°æ®
- * @param {string} filename - æ–‡ä»¶å
+ * µ¼³ö·ÖÎö±¨¸æÎª JSON
+ * @param {object} data - ·ÖÎöÊý¾Ý
+ * @param {string} filename - ÎÄ¼þÃû
  */
 export const exportReport = (data, filename) => {
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -136,4 +163,38 @@ export const exportReport = (data, filename) => {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+};
+
+export const uploadMultipleDocuments = async (mainFile, refFiles) => {
+    const formData = new FormData();
+    formData.append('main_doc', mainFile);
+    refFiles.forEach((file) => {
+        formData.append('ref_docs', file);
+    });
+    
+    const response = await api.post('/upload-multiple', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response.data;
+};
+
+export const compareReferences = async (mainDocId, refDocIds, threshold = 0.3) => {
+    const response = await api.post('/compare-references', {
+        main_doc_id: mainDocId,
+        ref_doc_ids: refDocIds,
+        similarity_threshold: threshold
+    });
+    return response.data;
+};
+
+export const compareImageText = async (imageFile, docId = null, sections = null) => {
+    const formData = new FormData();
+    formData.append('file', imageFile);
+    if (docId) formData.append('document_id', docId);
+    if (sections) formData.append('relevant_sections', sections);
+
+    const response = await api.post('/compare-image-text', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response.data;
 };

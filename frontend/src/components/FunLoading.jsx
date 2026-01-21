@@ -100,7 +100,7 @@ export default function FunLoading({
             
             {/* 底部小提示 */}
             <p className="text-white/80 mt-8 text-sm font-light tracking-wide">
-                FactGuardian · 使得事实更清晰
+                FactGuardian · 让事实更清晰
             </p>
         </div>
     );
