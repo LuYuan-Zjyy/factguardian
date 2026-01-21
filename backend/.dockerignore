@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 __pycache__
 *.pyc
 *.pyo
@@ -20,3 +21,84 @@ env/
 htmlcov/
 *.log
 
+=======
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
+venv/
+ENV/
+env/
+.venv
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Project specific
+test_*.py
+*_test.py
+*.docx
+*.pdf
+*.txt
+*.md
+architecture.png
+document.docx
+main.docx
+reference1.docx
+test_data*.txt
+test_data*.md
+
+# Docker
+Dockerfile
+.dockerignore
+
+# Git
+.git/
+.gitignore
+
+# Documentation
+*.md
+!README.md
+>>>>>>> c364e2e (最终版本)

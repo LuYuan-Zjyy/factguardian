@@ -3,9 +3,16 @@
 支持使用 Claude Vision / GPT-4V / 豆包 提取图片中的文本和结构信息
 """
 import os
+<<<<<<< HEAD
 import base64
 import logging
 from typing import Dict, Any, Optional
+=======
+import re
+import base64
+import logging
+from typing import Dict, Any, Optional, List
+>>>>>>> c364e2e (最终版本)
 from io import BytesIO
 
 try:
@@ -102,6 +109,12 @@ class ImageExtractor:
             else:
                 raise ValueError("未配置任何 Vision API")
             
+<<<<<<< HEAD
+=======
+            # 清洗描述，去除多余的前置语和 Markdown 头标记
+            description = self._sanitize_description(description)
+
+>>>>>>> c364e2e (最终版本)
             # 解析结构化元素
             extracted_elements = self._parse_elements(description)
             
@@ -259,6 +272,7 @@ class ImageExtractor:
 
                 # 豆包返回格式处理 - 尝试多种可能格式
                 try:
+<<<<<<< HEAD
                     # 格式1: output.choices[0].message.content
                     if "output" in data and "choices" in data["output"]:
                         return data["output"]["choices"][0]["message"]["content"]
@@ -274,12 +288,96 @@ class ImageExtractor:
                 except Exception as parse_error:
                     logger.error(f"解析豆包响应失败: {parse_error}, 响应数据: {data}")
                     return str(data)
+=======
+                    # 格式1: 新版推理格式 (包含 reasoning 和 message)
+                    # 结构: [{"type": "reasoning", ...}, {"type": "message", "content": [...]}]
+                    if isinstance(data, list):
+                        # 尝试在新版推理格式中提取文字
+                        text = self._extract_text_from_doubao_content(data)
+                        if text:
+                            return text
+                        return ""
+
+                    # 格式2: output.choices[0].message.content (旧版格式)
+                    if "output" in data and "choices" in data["output"]:
+                        message_content = data["output"]["choices"][0]["message"].get("content")
+                        text = self._extract_text_from_doubao_content(message_content)
+                        if text:
+                            return text
+                        return "" if not isinstance(message_content, str) else message_content
+                    # 格式3: output.text
+                    elif "output" in data and "text" in data["output"]:
+                        return data["output"]["text"]
+                    # 格式4: 直接返回 content 字段
+                    elif "content" in data:
+                        text = self._extract_text_from_doubao_content(data["content"])
+                        if text:
+                            return text
+                        return "" if not isinstance(data["content"], str) else data["content"]
+                    # 格式5: 直接返回 output
+                    elif "output" in data:
+                        output_data = data["output"]
+                        text = self._extract_text_from_doubao_content(output_data)
+                        if text:
+                            return text
+                        if isinstance(output_data, dict) and "content" in output_data:
+                            return output_data["content"] if isinstance(output_data["content"], str) else ""
+                        return "" if not isinstance(output_data, str) else output_data
+                    # 格式6: 未知格式，返回空字符串而不是原始结构
+                    else:
+                        return ""
+                except Exception as parse_error:
+                    logger.error(f"解析豆包响应失败: {parse_error}, 响应数据: {data}")
+                    return ""
+>>>>>>> c364e2e (最终版本)
 
         except ImportError:
             raise ImportError("httpx 库未安装，请运行: pip install httpx")
         except Exception as e:
             logger.error(f"豆包 Vision API 调用失败: {str(e)}")
             raise
+<<<<<<< HEAD
+=======
+
+    def _extract_text_from_doubao_content(self, content) -> str:
+        """
+        从豆包多层 content/reasoning 结构中递归抽取文本，避免直接输出结构体。
+        """
+        texts: List[str] = []
+
+        def walk(node):
+            if node is None:
+                return
+            if isinstance(node, str):
+                stripped = node.strip()
+                if stripped:
+                    texts.append(stripped)
+                return
+            if isinstance(node, list):
+                for item in node:
+                    walk(item)
+                return
+            if isinstance(node, dict):
+                # 常见字段: text / content / summary
+                if isinstance(node.get("text"), str):
+                    t = node.get("text", "").strip()
+                    if t:
+                        texts.append(t)
+                if "summary" in node:
+                    walk(node["summary"])
+                if "content" in node:
+                    walk(node["content"])
+                return
+
+        walk(content)
+        return "\n".join(texts).strip()
+
+    def _extract_text_from_nested_list(self, data) -> str:
+        """
+        兼容旧的递归提取函数，内部复用统一的解析逻辑。
+        """
+        return self._extract_text_from_doubao_content(data)
+>>>>>>> c364e2e (最终版本)
     
     def _parse_elements(self, description: str) -> Dict[str, Any]:
         """
@@ -311,6 +409,28 @@ class ImageExtractor:
         
         return elements
 
+<<<<<<< HEAD
+=======
+    def _sanitize_description(self, description: str) -> str:
+        """
+        去除模型返回中的提示性前缀语句与 Markdown 头标记，只保留结论性内容。
+        """
+        lines = description.splitlines()
+        cleaned: List[str] = []
+        for line in lines:
+            raw = line.strip()
+            if not raw:
+                continue
+            # 过滤常见的自述/任务说明句子
+            if re.search(r"(我现在要|按照用户要求|按照要求|现在整理|现在检查)", raw):
+                continue
+            # 去掉 Markdown 标题前缀 #
+            raw = raw.lstrip("#").strip()
+            cleaned.append(raw)
+        result = "\n".join(cleaned).strip()
+        return result if result else description.strip()
+
+>>>>>>> c364e2e (最终版本)
 
 # 全局实例
 image_extractor = ImageExtractor()

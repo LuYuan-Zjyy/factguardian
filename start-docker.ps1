@@ -44,6 +44,8 @@ Write-Host ""
 # 停止并删除旧容器（如果存在）
 Write-Host "[4/6] 清理旧容器..." -ForegroundColor Yellow
 docker-compose down 2>&1 | Out-Null
+# 强制删除可能冲突的容器（防止名称冲突错误）
+docker rm -f factguardian-backend factguardian-frontend factguardian-redis 2>&1 | Out-Null
 Write-Host "  [OK] 旧容器已清理" -ForegroundColor Green
 
 Write-Host ""
