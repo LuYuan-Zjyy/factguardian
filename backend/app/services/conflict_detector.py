@@ -707,6 +707,7 @@ class ConflictDetector:
                         "fact_id": "rep_source",
                         "type": "段落内容",
                         "content": content[:100] + "..." if len(content) > 100 else content,
+                        "original_text": content,  # 添加完整原文用于前端高亮
                         "location": {"section_title": unique_locs[0] if unique_locs else "未知"}
                     },
                     "fact_b": {

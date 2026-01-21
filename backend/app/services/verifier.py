@@ -15,34 +15,45 @@ from app.services.prompt_tuner import prompt_tuner
 logger = logging.getLogger(__name__)
 
 VERIFICATION_PROMPT_TEMPLATE = """
-你需要验证以下事实的真实性。
+你是一位严谨的事实核查专家。请基于搜索结果验证以下事实陈述的真实性。
 
-文档中声称的事实：
+【待验证的事实】
 "{claim}"
 
-上下文背景：
+【上下文背景】
 "{context}"
 
-搜索到的相关信息：
+【搜索到的相关信息】
 {search_results}
 
-请评估该事实的真实性。
+【验证要求】
+1. 采用思维链（Chain of Thought）进行分析：
+   - 提取事实的核心要素（主体、谓词、客体、数值、时间等）
+   - 将核心要素与搜索结果逐一比对
+   - 识别是否存在直接证据、间接证据或矛盾证据
+   - 评估信息来源的可靠性和时效性
 
-请采用思维链（Chain of Thought）的方式进行分析：
-1. 分析事实的核心主张（主体、谓词、客体、时间等）。
-2. 将核心主张与搜索到的信息进行比对。
-3. 检查是否存在矛盾或确认的证据。
-4. 综合判断置信度。
+2. 防止幻觉的关键原则：
+   - 如果搜索结果与事实完全无关，应标记为"无法验证"而非"支持"
+   - 如果搜索结果不足以判断，应降低置信度到"Low"
+   - 如果发现明显矛盾，必须在correction中提供正确信息
+   - 不要基于常识推理，只基于搜索结果判断
 
-最后，请严格按照以下 JSON 格式输出结果（JSON需包含在 ```json 代码块中）：
+3. 输出格式要求（严格JSON，包含在 ```json 代码块中）：
 ```json
 {{
-  "is_supported": true或false,
+  "is_supported": true或false或null,
   "confidence_level": "High"或"Medium"或"Low",
-  "assessment": "根据上述分析的简短结论",
-  "correction": "如果事实错误，请提供正确的建议值，否则留空"
+  "assessment": "简短结论（50字以内）",
+  "correction": "如果事实错误，提供修正建议；如果正确或无法判断，留空"
 }}
 ```
+
+【特别注意】
+- is_supported=true: 搜索结果明确支持该事实
+- is_supported=false: 搜索结果明确否定该事实
+- is_supported=null: 搜索结果不足以判断（无关或信息不足）
+- confidence_level 应基于证据强度：High（多个权威来源）、Medium（单一来源或间接证据）、Low（证据不足或存在矛盾）
 """
 QUERY_GENERATION_PROMPT = """
 我需要通过搜索引擎验证以下事实。请为这个事实生成 1-2 个最有效的搜索关键词或查询语句。

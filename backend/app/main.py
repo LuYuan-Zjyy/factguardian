@@ -384,6 +384,18 @@ async def extract_facts_by_id(document_id: str):
             
         logger.info(f"事实提取完成: {filename}, 共 {extraction_result['total_facts']} 条事实")
         
+        # 更新进度为完成状态
+        await progress_manager.update_progress(
+            document_id,
+            stage=ProgressStage.EXTRACT_FACTS,
+            stage_label="提取事实",
+            current=len(sections),
+            total=len(sections),
+            message=f"事实提取完成！共提取 {extraction_result['total_facts']} 条事实",
+            sub_message="",
+            mark_stage_complete=True
+        )
+        
         return {
             "success": True,
             "document_id": document_id,
@@ -514,6 +526,18 @@ async def detect_conflicts(document_id: str):
         
         logger.info(f"冲突检测完成: 文档 {document_id}, 发现 {result['conflicts_found']} 个冲突")
         
+        # 更新进度为完成状态
+        await progress_manager.update_progress(
+            document_id,
+            stage=ProgressStage.DETECT_CONFLICTS,
+            stage_label="冲突检测",
+            current=result["total_comparisons"],
+            total=result["total_comparisons"],
+            message=f"冲突检测完成！发现 {result['conflicts_found']} 个冲突",
+            sub_message="",
+            mark_stage_complete=True
+        )
+        
         return {
             "success": True,
             "document_id": document_id,
@@ -609,6 +633,18 @@ async def verify_facts(document_id: str, only_errors: bool = False):
         if only_errors:
             filtered_results = [r for r in results if not r.get('is_supported') and not r.get('skipped', False)]
         
+        # 更新进度为完成状态
+        await progress_manager.update_progress(
+            document_id,
+            stage=ProgressStage.VERIFY_FACTS,
+            stage_label="溯源校验",
+            current=len(results),
+            total=len(results),
+            message=f"溯源校验完成！已验证 {len(results)} 条事实",
+            sub_message=f"支持: {supported_count}, 不支持: {unsupported_count}, 跳过: {skipped_count}",
+            mark_stage_complete=True
+        )
+        
         return {
             "success": True,
             "document_id": document_id,
@@ -636,13 +672,14 @@ async def verify_facts(document_id: str, only_errors: bool = False):
 @app.post("/api/analyze")
 async def analyze_document(file: UploadFile = File(...)):
     """
-    一站式文档分析（上传 -> 提取事实 -> 检测冲突）
+    一站式文档分析（上传 -> 提取事实 -> 检测冲突 -> 溯源校验）
     
     流程：
     1. 解析文档
     2. 提取事实
     3. 检测冲突
-    4. 返回完整分析结果
+    4. 溯源校验
+    5. 返回完整分析结果
     
     支持的文件类型：docx, pdf, txt, md
     """
@@ -721,6 +758,42 @@ async def analyze_document(file: UploadFile = File(...)):
                 "error": str(e)
             }
         
+        # 4. 溯源校验
+        verification_result = {
+            "total": 0,
+            "supported": 0,
+            "unsupported": 0,
+            "skipped": 0,
+            "items": []
+        }
+        
+        # 只对包含公开事实的文档进行溯源校验
+        public_facts_count = sum(1 for f in extraction_result['facts'] if f.get('verifiable_type') != 'internal')
+        
+        if public_facts_count > 0 and public_facts_count <= 100:  # 限制在100个以内，避免成本过高
+            logger.info(f"开始溯源校验: {file.filename}, 公开事实数: {public_facts_count}")
+            try:
+                verifications = await verifier.verify_document_facts(document_id)
+                
+                # 统计验证结果
+                supported_count = sum(1 for r in verifications if r.get('is_supported') and not r.get('skipped', False))
+                unsupported_count = sum(1 for r in verifications if not r.get('is_supported') and not r.get('skipped', False))
+                skipped_count = sum(1 for r in verifications if r.get('skipped', False))
+                
+                verification_result = {
+                    "total": len(verifications),
+                    "supported": supported_count,
+                    "unsupported": unsupported_count,
+                    "skipped": skipped_count,
+                    "items": verifications
+                }
+                logger.info(f"溯源校验完成: 验证 {len(verifications)} 个事实, 通过 {supported_count}, 失败 {unsupported_count}")
+            except Exception as e:
+                logger.warning(f"溯源校验失败（不影响主流程）: {str(e)}")
+                verification_result["error"] = str(e)
+        else:
+            logger.info(f"跳过溯源校验: 公开事实数={public_facts_count}, 超过阈值或无公开事实")
+        
         logger.info(f"分析完成: {file.filename}, 事实: {extraction_result['total_facts']}, 冲突: {conflict_result['conflicts_found']}")
         
         return {
@@ -739,7 +812,8 @@ async def analyze_document(file: UploadFile = File(...)):
                     "total": conflict_result['conflicts_found'],
                     "items": conflict_result['conflicts'],
                     "statistics": conflict_result.get('statistics', {})
-                }
+                },
+                "verification": verification_result
             }
         }
         

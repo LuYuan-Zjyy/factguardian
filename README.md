@@ -168,13 +168,18 @@ curl -X POST "http://localhost:8000/api/upload" \
 
 #### 2. 提取事实
 
+方式一：直接上传并提取（一步到位）
 ```bash
 curl -X POST "http://localhost:8000/api/extract-facts" \
      -F "file=@document.docx"
 ```
 
-或使用已上传的文档：
+方式二：使用已上传的文档ID（推荐，可复用已解析文档）
 ```bash
+# 先上传获取 document_id
+curl -X POST "http://localhost:8000/api/upload" -F "file=@document.docx"
+
+# 然后使用返回的 document_id 提取事实
 curl -X POST "http://localhost:8000/api/documents/abc12345/extract-facts"
 ```
 

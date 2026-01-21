@@ -31,7 +31,7 @@ class FactExtractor:
         report_progress: bool = True
     ) -> Dict[str, Any]:
         """
-        从文档中提取所有事实
+        从文档中提取所有事实（支持超长文档分片处理）
         
         Args:
             document_id: 文档ID
@@ -49,9 +49,14 @@ class FactExtractor:
         all_facts = []
         section_stats = []
         
+        # 超长文档分片处理：对超过 3000 字的章节进行分片
+        processed_sections = self._split_long_sections(sections)
+        
         # 计算有效章节数（内容长度>=20的章节）
-        valid_sections = [s for s in sections if len(s.get("content", "")) >= 20]
+        valid_sections = [s for s in processed_sections if len(s.get("content", "")) >= 20]
         total_valid = len(valid_sections)
+        
+        logger.info(f"文档 {filename}: 原始章节数={len(sections)}, 分片后={len(processed_sections)}, 有效={total_valid}")
         processed_count = 0
         
         # 初始化进度
@@ -172,6 +177,74 @@ class FactExtractor:
                 logger.error(f"保存到 Redis 失败: {str(e)}")
                 result["saved_to_redis"] = False
         
+        return result
+    
+    def _split_long_sections(self, sections: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        对超长章节进行分片处理，避免 LLM token 限制
+
+        策略：
+        - 单章节 > 3000 字：按段落分片，每片 ~2500 字
+        - 保留上下文重叠（200字）以保证连贯性
+
+        Args:
+            sections: 原始章节列表
+
+        Returns:
+            分片后的章节列表
+        """
+        MAX_SECTION_LENGTH = 3000  # 单章节最大字数
+        CHUNK_SIZE = 2500          # 分片大小
+        OVERLAP = 200              # 重叠大小
+
+        result = []
+
+        for section in sections:
+            content = section.get("content", "")
+            title = section.get("title", "")
+        
+            if len(content) <= MAX_SECTION_LENGTH:
+                # 章节不超长，直接保留
+                result.append(section)
+            else:
+                # 超长章节，需要分片
+                logger.info(f"检测到超长章节 '{title}' ({len(content)}字)，进行分片处理")
+            
+                # 按段落分割（保留空行为分割符）
+                paragraphs = content.split('\n\n')
+            
+                chunks = []
+                current_chunk = ""
+            
+                for para in paragraphs:
+                    para = para.strip()
+                    if not para:
+                        continue
+                
+                    # 如果当前块 + 新段落 > CHUNK_SIZE，则切换
+                    if len(current_chunk) + len(para) > CHUNK_SIZE and current_chunk:
+                        chunks.append(current_chunk)
+                        # 保留重叠
+                        current_chunk = current_chunk[-OVERLAP:] + "\n\n" + para
+                    else:
+                        current_chunk += ("\n\n" if current_chunk else "") + para
+            
+                # 添加最后一块
+                if current_chunk:
+                    chunks.append(current_chunk)
+            
+                # 生成分片章节
+                for i, chunk in enumerate(chunks):
+                    result.append({
+                        "title": f"{title} [分片 {i+1}/{len(chunks)}]",
+                        "content": chunk,
+                        "level": section.get("level", 1),
+                        "original_section": title,  # 记录原始章节名
+                        "chunk_index": i
+                    })
+            
+                logger.info(f"章节 '{title}' 分为 {len(chunks)} 片")
+
         return result
     
     def _deduplicate_facts(self, facts: List[Dict[str, Any]]) -> List[Dict[str, Any]]:

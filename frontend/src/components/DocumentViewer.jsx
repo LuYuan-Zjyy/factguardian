@@ -35,19 +35,18 @@ export default function DocumentViewer({ sections, conflicts, repetitions, verif
 
         // 2. 重复段落高亮 (Purple)
         repetitions?.forEach((r, idx) => {
-             // 假设 repetitions 结构类似于 { fact_a: {...}, fact_b: {...}, explanation: ... }
-             // 使用 fact_a.original_text 和 fact_b.original_text
+             // 使用后端返回的 conflict_id 确保与 RepetitionList 的 ref 匹配
              if (r.fact_a?.original_text) {
                  map.set(r.fact_a.original_text.trim(), {
                      type: 'repetition',
-                     id: `rep-${idx}`, // 使用索引作为临时ID
+                     id: r.conflict_id || `rep-${idx}`, // 优先使用 conflict_id
                      info: r
                  });
              }
              if (r.fact_b?.original_text) {
                  map.set(r.fact_b.original_text.trim(), {
                      type: 'repetition',
-                     id: `rep-${idx}`,
+                     id: r.conflict_id || `rep-${idx}`,
                      info: r
                  });
              }
@@ -65,7 +64,7 @@ export default function DocumentViewer({ sections, conflicts, repetitions, verif
         });
 
         return map;
-    }, [conflicts, verifications]);
+    }, [conflicts, repetitions, verifications]);
 
     // 处理高亮点击
     const handleClick = useCallback((highlightInfo) => {
@@ -166,6 +165,10 @@ export default function DocumentViewer({ sections, conflicts, repetitions, verif
                     <div className="flex items-center gap-1">
                         <span className="w-3 h-3 bg-amber-200 rounded cursor-pointer"></span>
                         <span className="text-slate-600">前后矛盾 (可点击)</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                        <span className="w-3 h-3 bg-purple-200 rounded cursor-pointer"></span>
+                        <span className="text-slate-600">高频重复 (可点击)</span>
                     </div>
                     <div className="flex items-center gap-1">
                         <span className="w-3 h-3 bg-red-200 border-b-2 border-red-400 rounded cursor-pointer"></span>

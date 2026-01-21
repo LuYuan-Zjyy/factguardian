@@ -1,7 +1,7 @@
 import React from 'react';
 import { Copy, MapPin } from 'lucide-react';
 
-export default function RepetitionList({ repetitions }) {
+export default function RepetitionList({ repetitions, repetitionRefs }) {
     if (!repetitions || repetitions.length === 0) return null;
 
     return (
@@ -13,7 +13,16 @@ export default function RepetitionList({ repetitions }) {
             
             <div className="grid gap-4">
                 {repetitions.map((rep, idx) => (
-                    <div key={idx} className="card border-l-4 border-l-purple-500 bg-white shadow-sm hover:shadow-md transition-all p-5 rounded-lg border border-slate-100">
+                    <div 
+                        key={rep.conflict_id || idx}
+                        ref={(el) => {
+                            if (repetitionRefs) {
+                                repetitionRefs.current[rep.conflict_id] = el;
+                            }
+                        }}
+                        id={`repetition-${rep.conflict_id}`}
+                        className="card border-l-4 border-l-purple-500 bg-white shadow-sm hover:shadow-md transition-all p-5 rounded-lg border border-slate-100"
+                    >
                         <div className="flex justify-between items-start mb-4">
                             <div>
                                 <span className="inline-block px-2 py-1 rounded text-xs font-bold mb-2 bg-purple-100 text-purple-700">
