@@ -141,7 +141,7 @@ EXPOSE 8000
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
 ```
 
-**Docker Compose 编排：**
+**Docker Compose 编排（含健康检查）：**
 
 ```yaml
 version: '3.8'
@@ -157,7 +157,14 @@ services:
       - REDIS_DB=0
       - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
     depends_on:
-      - redis
+      redis:
+        condition: service_healthy  # 等待 Redis 健康后启动
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
     restart: unless-stopped
 
   redis:
@@ -166,6 +173,11 @@ services:
       - "6379:6379"
     volumes:
       - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
     restart: unless-stopped
 
 volumes:
@@ -185,6 +197,43 @@ volumes:
 | NLP | jieba + datasketch | 中文分词、LSH 相似度计算 |
 
 ### 2.4 稳定性设计
+#### 超长文档处理策略（2026/1/21 新增）
+
+针对课程要求的"5000字以上长文档"，系统实现了完善的超长文档分片处理机制：
+
+**1. 分片触发条件：**
+- 单章节内容 > 3000 字时自动触发分片
+- 避免 LLM token 限制（DeepSeek 单次最大 ~8K tokens）
+
+**2. 分片策略：**
+```python
+def _split_long_sections(sections):
+    MAX_SECTION_LENGTH = 3000  # 单章节最大字数
+    CHUNK_SIZE = 2500          # 分片大小
+    OVERLAP = 200              # 重叠大小（保证上下文连贯）
+    
+    # 按段落智能分片
+    paragraphs = content.split('\n\n')
+    
+    # 保留 200 字重叠，避免事实被截断
+    current_chunk = current_chunk[-OVERLAP:] + "\n\n" + para
+```
+
+**3. 分片效果：**
+- ✅ 10000 字文档 → 自动分为 4-5 片
+- ✅ 每片保留上下文重叠，避免事实碎片化
+- ✅ Token 控制：每片 < 3000 tokens，安全范围内
+- ✅ 进度追踪：分片后章节数量自动更新
+
+**4. Token 预估与警告：**
+```python
+# Token 预估（粗略估算：1 token ≈ 1.5 中文字符）
+estimated_tokens = len(text) // 1.5 + 1000
+if estimated_tokens > 6000:
+    logger.warning(f"章节预估 token 数过高 ({int(estimated_tokens)}), 建议分片处理")
+```
+---
+
 
 1) #### 错误处理与异常捕获
 - 多层 try-except 保护：API 端点、服务层、外部调用均有异常捕获
@@ -265,27 +314,52 @@ try:
     logger.info(f"Redis 连接检查通过...")
 except Exception as e:
     logger.warning(f"Redis 连接初始化检查失败: {e}")
-    # 提供详细的环境配置警告
+    # 提供详细的云原生部署要求警告
 ```
-- API 端点前置检查
-```235:240:backend/app/main.py
+
+**API 端点前置检查：**
+```python
 if not llm_client.is_available():
     raise HTTPException(
         status_code=503,
         detail="LLM 服务不可用，请检查 DEEPSEEK_API_KEY 是否已配置"
     )
 ```
-- 健康检查端点
-```60:74:backend/app/main.py
+
+**健康检查端点（支持容器编排）：**
+```python
 @app.get("/health")
 async def health_check():
+    """供 Docker healthcheck 和负载均衡器使用"""
     redis_status = "connected" if redis_client.is_connected() else "disconnected"
     llm_status = "configured" if llm_client.is_available() else "not_configured"
-    return {
-        "status": "healthy",
-        "redis": redis_status,
-        "llm": llm_status
-    }
+    return JSONResponse(
+        status_code=200,
+        content={
+            "status": "healthy",
+            "service": "FactGuardian Backend",
+            "redis": redis_status,
+            "llm": llm_status
+        }
+    )
+```
+
+**Docker Compose 健康探针配置**
+```yaml
+backend:
+  healthcheck:
+    test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+    interval: 30s      # 每30秒检查一次
+    timeout: 10s       # 超时时间
+    retries: 3         # 失败3次才判定不健康
+    start_period: 40s  # 启动缓冲期
+
+redis:
+  healthcheck:
+    test: ["CMD", "redis-cli", "ping"]
+    interval: 10s
+    timeout: 3s
+    retries: 3
 ```
 
 4) #### 超时与资源限制
@@ -623,55 +697,105 @@ CONFLICT_DETECTION_PROMPT = """以下是从同一文档不同位置提取的两�
 
 ```python
 VERIFICATION_PROMPT_TEMPLATE = """
-请验证以下事实的真实性，采用思维链（Chain of Thought）方式分析：
+你是一位严谨的事实核查专家。请基于搜索结果验证以下事实陈述的真实性。
 
-1. 分析事实的核心主张（主体、谓词、客体、时间等）
-2. 将核心主张与搜索到的信息进行比对
-3. 检查是否存在矛盾或确认的证据
-4. 综合判断置信度
+【待验证的事实】
+"{claim}"
 
-最后输出 JSON 格式结果：
-```json
+【上下文背景】
+"{context}"
+
+【搜索到的相关信息】
+{search_results}
+
+【验证要求】
+1. 采用思维链（Chain of Thought）进行分析：
+   - 提取事实的核心要素（主体、谓词、客体、数值、时间等）
+   - 将核心要素与搜索结果逐一比对
+   - 识别是否存在直接证据、间接证据或矛盾证据
+   - 评估信息来源的可靠性和时效性
+
+2. 防止幻觉的关键原则：
+   - 如果搜索结果与事实完全无关，应标记为"无法验证"而非"支持"
+   - 如果搜索结果不足以判断，应降低置信度到"Low"
+   - 如果发现明显矛盾，必须在correction中提供正确信息
+   - 不要基于常识推理，只基于搜索结果判断
+
+3. 输出格式要求（严格JSON）：
 {{
-  "is_supported": true/false,
-  "confidence_level": "High/Medium/Low",
-  "assessment": "分析结论",
-  "correction": "修正建议"
+  "is_supported": true或false或null,  # null表示无法验证
+  "confidence_level": "High"或"Medium"或"Low",
+  "assessment": "简短结论（50字以内）",
+  "correction": "如果事实错误，提供修正建议；否则留空"
 }}
-```
+
+【特别注意】
+- is_supported=true: 搜索结果明确支持该事实
+- is_supported=false: 搜索结果明确否定该事实
+- is_supported=null: 搜索结果不足以判断（无关或信息不足）
+- confidence_level 应基于证据强度：High（多个权威来源）、Medium（单一来源）、Low（证据不足）
 """
 ```
 
-#### 3.3.2 多源搜索集成
+#### 3.3.2 多源搜索集成与智能过滤
+
+**搜索引擎优先级：**
 
 ```python
 class SearchClient:
-    """支持 Tavily、Serper 或 Mock 模式的搜索客户端"""
+    """支持 Tavily、Serper 或 LLM Mock 的搜索客户端"""
     
     def __init__(self):
         self.tavily_key = os.getenv("TAVILY_API_KEY")
         self.serper_key = os.getenv("SERPER_API_KEY")
+        # 优先级: Tavily > Serper > LLM Mock
         self.provider = "tavily" if self.tavily_key else "serper" if self.serper_key else "mock"
+```
+
+**内部数据智能过滤：**
+
+```python
+async def verify_document_facts(self, document_id: str):
+    """验证文档事实，自动跳过内部数据"""
+    all_facts = self.redis_client.get_facts(document_id)
     
-    async def search(self, query, max_results=3):
-        if self.provider == "tavily":
-            return await self._search_tavily(query, max_results)
-        elif self.provider == "serper":
-            return await self._search_serper(query, max_results)
-        else:
-            # Mock 模式：使用 LLM 模拟搜索结果
-            return await self._search_mock_with_llm(query)
-    
-    async def _search_mock_with_llm(self, query):
-        """使用 LLM 生成模拟搜索结果，降低测试门槛"""
-        prompt = f"""请模拟搜索引擎的功能。针对查询 "{query}"，
-        请生成 3 个看起来真实的搜索结果摘要。
+    for i, fact in enumerate(all_facts):
+        verifiable_type = fact.get('verifiable_type', 'public')
         
-        要求：
-        1. 内容必须是准确、客观的事实
-        2. 如果查询包含明显的事实错误，搜索结果应包含正确信息
-        """
-        # 返回模拟结果...
+        if verifiable_type == 'internal':
+            # 跳过内部数据，避免误验证
+            results.append({
+                "fact_index": i,
+                "is_supported": None,
+                "assessment": "内部数据，无法通过公开信息验证。建议使用'冲突检测'检查一致性。",
+                "skipped": True,
+                "skip_reason": "internal_data"
+            })
+            continue
+        
+        # 验证公开事实...
+```
+
+**一站式分析中的智能应用（2026/1/21 新增）：**
+
+```python
+@app.post("/api/analyze")
+async def analyze_document(file: UploadFile):
+    """
+    一站式分析：解析 -> 提取 -> 冲突检测 -> 溯源校验（智能）
+    """
+    # ... 提取事实、检测冲突 ...
+    
+    # 智能溯源校验：只验证公开事实，限制数量避免成本过高
+    public_facts_count = sum(1 for f in facts if f.get('verifiable_type') != 'internal')
+    
+    if public_facts_count > 0 and public_facts_count <= 100:
+        verifications = await verifier.verify_document_facts(document_id)
+        # 统计结果...
+    else:
+        logger.info(f"跳过溯源校验: 公开事实数={public_facts_count}, 超过阈值或无公开事实")
+    
+    return {"analysis": {"facts": ..., "conflicts": ..., "verification": ...}}
 ```
 
 ### 3.4 异常处理与鲁棒性
@@ -1583,13 +1707,32 @@ FactGuardian 系统成功实现了：
 
 ✅ **事实提取**：基于 LLM 的结构化事实提取，**准确率 > 95%**
 ✅ **冲突检测**：多策略混合检测，**准确率 > 90%，误报率 < 5%**
-✅ **溯源校验**：集成 Tavily/Serper 搜索，支持 Chain of Thought 推理
-✅ **可视化 Dashboard**：React + Tailwind 实现的现代化分析界面
-✅ **云原生架构**：Docker 容器化 + Redis 事实黑板 + 完善的部署方案
+✅ **溯源校验**：集成 Tavily/Serper 搜索 + LLM 智能验证，支持 Chain of Thought 推理
+✅ **可视化 Dashboard**：React + Tailwind 实现的现代化分析界面（统计卡片展示）
+✅ **云原生架构**：Docker 容器化 + Redis 事实黑板 + 健康检查探针 + 完善的部署方案
+✅ **额外功能**：参考文本对比与图片/框架图对比的实现，**准确率>90%，误报率<5%**
 
-✅**额外功能，参考文本对比与图片/框架图对比的实现**：**准确率>90%，误报率<5%**
+### 8.2 技术亮点与创新
 
-### 8.2 未来改进方向
+**1. 防幻觉机制：**
+- 三态判断：支持/否定/无法验证，避免过度自信
+- 证据分级：High/Medium/Low 对应多源/单源/不足
+- 内部数据过滤：自动跳过内部规划数据，避免误验证
+- 智能阈值：公开事实数量控制在100以内，平衡准确性与成本
+
+**2. 云原生最佳实践：**
+- 依赖健康等待：backend 等待 redis 健康后启动
+- 故障自愈：不健康容器自动重启（healthcheck + restart policy）
+- 内存后备：Redis 不可用时降级到内存，保证服务可用性
+- 单例模式：全局共享 Redis 客户端，避免连接浪费
+
+**3. 工程规范：**
+- 完善的错误处理（多层 try-except）
+- 结构化日志（分级记录关键操作）
+- API 文档准确性（修正接口示例）
+- 自动化测试（test_auto.py 支持三种模式）
+
+### 8.3 未来改进方向
 
 | 方向 | 具体内容 |
 |-----|---------|
@@ -1676,6 +1819,5 @@ factguardian/
 ├── EXPERIMENT_REPORT.md              # 实验报告文档
 ├── TODO.md                           # 待办事项列表
 ├── 分工.md                           # 项目分工文档
-├── ZXY_BRANCH_REVIEW.md             # 分支审查文档
 ```
 

@@ -4,6 +4,7 @@ LLM 客户端服务
 """
 import os
 import json
+import asyncio
 import httpx
 import logging
 from typing import List, Dict, Any, Optional
@@ -59,21 +60,35 @@ class LLMClient:
             "max_tokens": max_tokens
         }
         
-        try:
-            async with httpx.AsyncClient(timeout=60.0) as client:
-                response = await client.post(url, json=payload, headers=headers)
-                response.raise_for_status()
-                
-                data = response.json()
-                content = data["choices"][0]["message"]["content"]
-                return content
-                
-        except httpx.HTTPStatusError as e:
-            logger.error(f"LLM API 请求失败: {e.response.status_code} - {e.response.text}")
-            raise
-        except Exception as e:
-            logger.error(f"LLM 调用异常: {str(e)}")
-            raise
+        # 重试机制：网络波动或 API 超时时自动重试
+        max_retries = 2
+        retry_delay = 3  # 秒
+        
+        for attempt in range(max_retries + 1):
+            try:
+                # 增加超时到 120 秒（处理长文本需要更多时间）
+                async with httpx.AsyncClient(timeout=120.0) as client:
+                    response = await client.post(url, json=payload, headers=headers)
+                    response.raise_for_status()
+                    
+                    data = response.json()
+                    content = data["choices"][0]["message"]["content"]
+                    return content
+                    
+            except httpx.ReadTimeout as e:
+                if attempt < max_retries:
+                    logger.warning(f"LLM 调用超时 (尝试 {attempt + 1}/{max_retries + 1})，{retry_delay}秒后重试...")
+                    await asyncio.sleep(retry_delay)
+                    continue
+                else:
+                    logger.error(f"LLM 调用超时: {type(e).__name__}: {str(e) or repr(e)} (已重试 {max_retries} 次)")
+                    raise
+            except httpx.HTTPStatusError as e:
+                logger.error(f"LLM API 请求失败: {e.response.status_code} - {e.response.text}")
+                raise
+            except Exception as e:
+                logger.error(f"LLM 调用异常: {type(e).__name__}: {str(e) or repr(e)}")
+                raise
     
     async def extract_facts(
         self,
@@ -82,7 +97,7 @@ class LLMClient:
         section_index: int = 0
     ) -> List[Dict[str, Any]]:
         """
-        从文本中提取事实信息
+        从文本中提取事实信息（带 token 限制检查）
         
         Args:
             text: 待提取的文本
@@ -97,6 +112,11 @@ class LLMClient:
             - location: 位置信息
             - confidence: 置信度
         """
+        # Token 预估（粗略估算：1 token ≈ 1.5 中文字符）
+        estimated_tokens = len(text) // 1.5 + 1000  # 文本 + Prompt 开销
+        if estimated_tokens > 6000:
+            logger.warning(f"章节 '{section_title}' 预估 token 数过高 ({int(estimated_tokens)}), 建议分片处理")
+        
         prompt = self._build_extraction_prompt(text, section_title)
         
         messages = [
@@ -135,7 +155,7 @@ class LLMClient:
             facts = self._parse_facts_response(response, section_title, section_index)
             return facts
         except Exception as e:
-            logger.error(f"事实提取失败: {str(e)}")
+            logger.error(f"事实提取失败 (章节: {section_title}): {type(e).__name__}: {str(e) or repr(e)}")
             return []
 
     def _build_extraction_prompt(self, text: str, section_title: str) -> str:

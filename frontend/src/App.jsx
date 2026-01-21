@@ -42,6 +42,7 @@ function App() {
   // 用于跳转高亮的 ref
   const conflictRefs = useRef({});
   const verificationRefs = useRef({});
+  const repetitionRefs = useRef({});
   
   // 取消订阅函数
   const unsubscribeRef = useRef(null);
@@ -58,9 +59,17 @@ function App() {
 
   // 处理高亮点击跳转
   const handleHighlightClick = useCallback((type, id) => {
-    // type: 'conflict' 或 'verification'
+    // type: 'conflict', 'verification' 或 'repetition'
     // id: 对应的 conflict_id 或 fact_id
-    const targetRef = type === 'conflict' ? conflictRefs.current[id] : verificationRefs.current[id];
+    let targetRef;
+    
+    if (type === 'conflict') {
+      targetRef = conflictRefs.current[id];
+    } else if (type === 'verification' || type === 'error') {
+      targetRef = verificationRefs.current[id];
+    } else if (type === 'repetition') {
+      targetRef = repetitionRefs.current[id];
+    }
     
     if (targetRef) {
       targetRef.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -419,7 +428,7 @@ function App() {
                 {/* 3. Repetitions */}
                 {data.stats.repetitionCount > 0 && (
                    <div id="repetitions">
-                      <RepetitionList repetitions={data.repetitions} />
+                      <RepetitionList repetitions={data.repetitions} repetitionRefs={repetitionRefs} />
                    </div>
                 )}
                 
