@@ -1,162 +1,162 @@
-﻿> English: [README.md](README.md) · 简体中文（本文件）
+> English: [README.md](README.md) · 简体中文（本文件）
 
-## 馃摉 椤圭洰绠€浠?
+## 📖 项目简介
 
-FactGuardian 鏄竴涓熀浜庡ぇ璇█妯″瀷锛圠LM锛夌殑鏅鸿兘鏂囨。瀹℃牳绯荤粺锛岃兘澶熻嚜鍔ㄤ粠鏂囨。涓彁鍙栧叧閿簨瀹烇紝妫€娴嬪唴閮ㄩ€昏緫鍐茬獊锛屽苟閫氳繃澶栭儴楠岃瘉鏉ラ獙璇佷簨瀹炴潵婧愩€傜郴缁熺壒鍒€傜敤浜庡浜哄憳鍗忎綔鏂囨。鐨勮川閲忔帶鍒讹紝濡傚鏈鏂囥€佸彲琛屾€ф姤鍛娿€佹妧鏈枃妗ｇ瓑銆?
+FactGuardian 是一个基于大语言模型（LLM）的智能文档审核系统，能够自动从文档中提取关键事实，检测内部逻辑冲突，并通过外部验证来验证事实来源。系统特别适用于多人员协作文档的质量控制，如学术论文、可行性报告、技术文档等。
 
-### 鏍稿績鑳藉姏
+### 核心能力
 
-- 馃攳 **鏅鸿兘浜嬪疄鎻愬彇**锛氬熀浜?LLM 鐨勭粨鏋勫寲浜嬪疄鎻愬彇锛屾敮鎸佸绉嶄簨瀹炵被鍨?
-- 鈿旓笍 **鍐茬獊妫€娴?*锛氳嚜鍔ㄦ娴嬫枃妗ｅ唴閮ㄧ殑鏁版嵁涓嶄竴鑷淬€侀€昏緫鐭涚浘銆佹椂闂村啿绐?
-- 鉁?**鏉ユ簮楠岃瘉**锛氶€氳繃缃戠粶鎼滅储鍜屾潈濞佹潵婧愯繘琛屽閮ㄤ簨瀹為獙璇?
-- 馃搳 **鍙傝€冨姣?*锛氳法鏂囨。鐩镐技鎬у垎鏋愬拰寮曠敤鍏崇郴妫€娴?
-- 馃柤锔?**鍥炬枃瀵规瘮**锛氶獙璇佹枃鏈弿杩颁笌瑙嗚鍥捐〃鐨勪竴鑷存€?
-- 馃殌 **楂樻€ц兘**锛氭壒閲忓苟琛屽鐞嗭紝鏀寔澶ц妯℃枃妗ｅ垎鏋?
-
----
-
-## 鉁?鍔熻兘鐗规€?
-
-### 鏍稿績鍔熻兘
-
-#### 1. 鏂囨。瑙ｆ瀽涓庝簨瀹炴彁鍙?
-- **澶氭牸寮忔敮鎸?*锛欴OCX銆丳DF銆乀XT銆丮arkdown
-- **缁撴瀯鍖栨彁鍙?*锛氳嚜鍔ㄦ彁鍙栨暟鎹€佹棩鏈熴€佷汉鍚嶃€佺粨璁恒€佷簨浠剁瓑浜嬪疄
-- **鍙獙璇佹€у垎绫?*锛氬尯鍒嗗叕寮€鍙獙璇佷簨瀹炲拰鍐呴儴鏁版嵁
-- **浣嶇疆杩借釜**锛氳褰曟瘡涓簨瀹炲湪鏂囨。涓殑浣嶇疆
-
-#### 2. 鍐茬獊妫€娴?
-- **鏅鸿兘姣斿**锛氬熀浜庣粨鏋勫寲瀛楁鐨勪簨瀹炲鐢熸垚
-- **澶氱被鍨嬫娴?*锛?
-  - 鏁版嵁涓嶄竴鑷达紙鏁板€煎啿绐併€佺櫨鍒嗘瘮宸紓锛?
-  - 閫昏緫鐭涚浘锛堣偗瀹?鍚﹀畾鍐茬獊锛?
-  - 鏃堕棿鍐茬獊锛堟椂闂磋寖鍥撮噸鍙犳垨鐭涚浘锛?
-- **閲嶅妫€娴?*锛氳瘑鍒珮棰戦噸澶嶆钀斤紙鍑虹幇3娆′互涓婏級
-- **鎵归噺澶勭悊**锛氬苟琛?LLM 璋冪敤锛坆atch_size=10锛夛紝鎻愬崌鎬ц兘
-
-#### 3. 浜嬪疄楠岃瘉
-- **澶栭儴鎼滅储**锛氶泦鎴?Tavily銆丼erper 绛夋悳绱?API锛屾敮鎸侀檷绾х瓥鐣?
-- **LLM 璇勪及**锛氫娇鐢ㄦ€濈淮閾撅紙Chain of Thought锛夊垎鏋?
-- **缃俊搴﹁瘎鍒?*锛欻igh/Medium/Low 涓夌骇缃俊搴?
-- **淇寤鸿**锛氭彁渚涢敊璇簨瀹炵殑淇寤鸿
-
-#### 4. 鎵╁睍鍔熻兘
-
-**鍙傝€冩枃妗ｅ姣?*
-- 澶氭枃妗ｄ笂浼狅紙涓绘枃妗?+ 澶氫釜鍙傝€冩枃妗ｏ級
-- 娈佃惤绾х浉浼煎害璁＄畻锛?-100%锛?
-- 鐩镐技绫诲瀷璇嗗埆锛堢洿鎺ュ紩鐢?鏀瑰啓/鎬濇兂鍊熼壌/鏃犲叧锛?
-- 寮曠敤寤鸿鐢熸垚锛坣eeds_citation锛?
-
-**鍥炬枃涓€鑷存€у姣?*
-- 澶?Vision API 鏀寔锛圕laude / GPT-4V / 璞嗗寘锛?
-- 鏋舵瀯鍥俱€佹祦绋嬪浘璇嗗埆
-- 鏍稿績閫昏緫涓庤瑙夌粏鑺傚尯鍒?
-- 涓€鑷存€ц瘎鍒嗗拰鐭涚浘妫€娴?
+- 🔍 **智能事实提取**：基于 LLM 的结构化事实提取，支持多种事实类型
+- ⚔️ **冲突检测**：自动检测文档内部的数据不一致、逻辑矛盾、时间冲突
+- ✅ **来源验证**：通过网络搜索和权威来源进行外部事实验证
+- 📊 **参考对比**：跨文档相似性分析和引用关系检测
+- 🖼️ **图文对比**：验证文本描述与视觉图表的一致性
+- 🚀 **高性能**：批量并行处理，支持大规模文档分析
 
 ---
 
-## 馃殌 蹇€熷紑濮?
+## ✨ 功能特性
 
-### 鍓嶇疆瑕佹眰
+### 核心功能
 
-- **鎿嶄綔绯荤粺**锛歐indows 10/11銆乵acOS 10.15+ 鎴?Linux锛圲buntu 18.04+锛?
-- **Docker Desktop**锛氱増鏈?24.0.0 鎴栨洿楂?
-- **Docker Compose**锛氱増鏈?1.29.0 鎴栨洿楂?
-- **鍐呭瓨**锛?GB RAM 鏈€浣庤姹傦紝16GB 鎺ㄨ崘
-- **瀛樺偍**锛?GB 鍙敤纾佺洏绌洪棿
-- **缃戠粶**锛氫簰鑱旂綉杩炴帴鐢ㄤ簬澶栭儴浜嬪疄楠岃瘉
+#### 1. 文档解析与事实提取
+- **多格式支持**：DOCX、PDF、TXT、Markdown
+- **结构化提取**：自动提取数据、日期、人名、结论、事件等事实
+- **可验证性分类**：区分公开可验证事实和内部数据
+- **位置追踪**：记录每个事实在文档中的位置
 
-### 瀹夎姝ラ
+#### 2. 冲突检测
+- **智能比对**：基于结构化字段的事实对生成
+- **多类型检测**：
+  - 数据不一致（数值冲突、百分比差异）
+  - 逻辑矛盾（肯定/否定冲突）
+  - 时间冲突（时间范围重叠或矛盾）
+- **重复检测**：识别高频重复段落（出现3次以上）
+- **批量处理**：并行 LLM 调用（batch_size=10），提升性能
 
-#### 1. 鍏嬮殕浠撳簱
+#### 3. 事实验证
+- **外部搜索**：集成 Tavily、Serper 等搜索 API，支持降级策略
+- **LLM 评估**：使用思维链（Chain of Thought）分析
+- **置信度评分**：High/Medium/Low 三级置信度
+- **修正建议**：提供错误事实的修正建议
+
+#### 4. 扩展功能
+
+**参考文档对比**
+- 多文档上传（主文档 + 多个参考文档）
+- 段落级相似度计算（0-100%）
+- 相似类型识别（直接引用/改写/思想借鉴/无关）
+- 引用建议生成（needs_citation）
+
+**图文一致性对比**
+- 多 Vision API 支持（Claude / GPT-4V / 豆包）
+- 架构图、流程图识别
+- 核心逻辑与视觉细节区分
+- 一致性评分和矛盾检测
+
+---
+
+## 🚀 快速开始
+
+### 前置要求
+
+- **操作系统**：Windows 10/11、macOS 10.15+ 或 Linux（Ubuntu 18.04+）
+- **Docker Desktop**：版本 24.0.0 或更高
+- **Docker Compose**：版本 1.29.0 或更高
+- **内存**：8GB RAM 最低要求，16GB 推荐
+- **存储**：5GB 可用磁盘空间
+- **网络**：互联网连接用于外部事实验证
+
+### 安装步骤
+
+#### 1. 克隆仓库
 
 ```bash
 git clone <repository-url>
 cd factguardian
 ```
 
-#### 2. 閰嶇疆鐜鍙橀噺
+#### 2. 配置环境变量
 
-鍒涘缓 `.env` 鏂囦欢锛堝弬鑰?`.env.example`锛夛細
+创建 `.env` 文件（参考 `.env.example`）：
 
 ```env
-# LLM API锛堝繀闇€锛?
+# LLM API（必需）
 DEEPSEEK_API_KEY=your_deepseek_api_key_here
 DEEPSEEK_BASE_URL=https://api.deepseek.com
 
-# Redis 閰嶇疆锛堝彲閫夛紝榛樿浣跨敤 Docker Compose 涓殑 Redis锛?
+# Redis 配置（可选，默认使用 Docker Compose 中的 Redis）
 REDIS_HOST=redis
 REDIS_PORT=6379
 REDIS_DB=0
 
-# Vision API锛堝彲閫夛紝鐢ㄤ簬鍥剧墖鎻愬彇鍔熻兘锛?
+# Vision API（可选，用于图片提取功能）
 OPENAI_API_KEY=your_openai_api_key_here
 ANTHROPIC_API_KEY=your_anthropic_api_key_here
 DOUBAO_API_KEY=your_doubao_api_key_here
 DOUBAO_ENDPOINT=https://ark.cn-beijing.volces.com/api/v3
 
-# 鎼滅储 API锛堝彲閫夛紝鐢ㄤ簬浜嬪疄楠岃瘉锛?
+# 搜索 API（可选，用于事实验证）
 TAVILY_API_KEY=your_tavily_api_key_here
 SERPER_API_KEY=your_serper_api_key_here
 ```
 
-#### 3. 鍚姩鏈嶅姟
+#### 3. 启动服务
 
-**Windows锛圥owerShell锛夛細**
+**Windows（PowerShell）：**
 ```powershell
 .\start-docker.ps1
 ```
 
-**Linux/macOS锛?*
+**Linux/macOS：**
 ```bash
 docker-compose up -d --build
 ```
 
-#### 4. 楠岃瘉瀹夎
+#### 4. 验证安装
 
-璁块棶浠ヤ笅鍦板潃楠岃瘉鏈嶅姟鏄惁姝ｅ父锛?
+访问以下地址验证服务是否正常：
 
-- **鍓嶇鐣岄潰**锛歨ttp://localhost:3000
-- **鍚庣 API 鏂囨。**锛歨ttp://localhost:8000/docs
-- **鍋ュ悍妫€鏌?*锛歨ttp://localhost:8000/health
+- **前端界面**：http://localhost:3000
+- **后端 API 文档**：http://localhost:8000/docs
+- **健康检查**：http://localhost:8000/health
 
 ---
 
-## 馃摎 浣跨敤鎸囧崡
+## 📚 使用指南
 
-### Web 鐣岄潰浣跨敤
+### Web 界面使用
 
-1. **涓婁紶鏂囨。**
-   - 璁块棶 http://localhost:3000
-   - 鐐瑰嚮涓婁紶鎸夐挳锛岄€夋嫨鏂囨。鏂囦欢锛堟敮鎸?DOCX銆丳DF銆乀XT銆丮D锛?
-   - 绛夊緟鏂囨。瑙ｆ瀽瀹屾垚
+1. **上传文档**
+   - 访问 http://localhost:3000
+   - 点击上传按钮，选择文档文件（支持 DOCX、PDF、TXT、MD）
+   - 等待文档解析完成
 
-2. **鎻愬彇浜嬪疄**
-   - 鐐瑰嚮"鎻愬彇浜嬪疄"鎸夐挳
-   - 绯荤粺鑷姩鎻愬彇鏂囨。涓殑鍏抽敭浜嬪疄
-   - 鏌ョ湅鎻愬彇鐨勪簨瀹炲垪琛ㄥ拰缁熻淇℃伅
+2. **提取事实**
+   - 点击"提取事实"按钮
+   - 系统自动提取文档中的关键事实
+   - 查看提取的事实列表和统计信息
 
-3. **妫€娴嬪啿绐?*
-   - 鐐瑰嚮"妫€娴嬪啿绐?鎸夐挳
-   - 绯荤粺鑷姩姣斿浜嬪疄锛岃瘑鍒啿绐?
-   - 鍦ㄦ枃妗ｄ腑楂樹寒鏄剧ず鍐茬獊浣嶇疆
+3. **检测冲突**
+   - 点击"检测冲突"按钮
+   - 系统自动比对事实，识别冲突
+   - 在文档中高亮显示冲突位置
 
-4. **楠岃瘉浜嬪疄**
-   - 鐐瑰嚮"楠岃瘉浜嬪疄"鎸夐挳
-   - 绯荤粺閫氳繃缃戠粶鎼滅储楠岃瘉浜嬪疄鐪熷疄鎬?
-   - 鏌ョ湅楠岃瘉缁撴灉鍜岀疆淇″害璇勫垎
+4. **验证事实**
+   - 点击"验证事实"按钮
+   - 系统通过网络搜索验证事实真实性
+   - 查看验证结果和置信度评分
 
-### API 浣跨敤绀轰緥
+### API 使用示例
 
-#### 1. 鏂囨。涓婁紶
+#### 1. 文档上传
 
 ```bash
 curl -X POST "http://localhost:8000/api/upload" \
      -F "file=@document.docx"
 ```
 
-鍝嶅簲锛?
+响应：
 ```json
 {
   "success": true,
@@ -168,36 +168,36 @@ curl -X POST "http://localhost:8000/api/upload" \
 }
 ```
 
-#### 2. 鎻愬彇浜嬪疄
+#### 2. 提取事实
 
-鏂瑰紡涓€锛氱洿鎺ヤ笂浼犲苟鎻愬彇锛堜竴姝ュ埌浣嶏級
+方式一：直接上传并提取（一步到位）
 ```bash
 curl -X POST "http://localhost:8000/api/extract-facts" \
      -F "file=@document.docx"
 ```
 
-鏂瑰紡浜岋細浣跨敤宸蹭笂浼犵殑鏂囨。ID锛堟帹鑽愶紝鍙鐢ㄥ凡瑙ｆ瀽鏂囨。锛?
+方式二：使用已上传的文档ID（推荐，可复用已解析文档）
 ```bash
-# 鍏堜笂浼犺幏鍙?document_id
+# 先上传获取 document_id
 curl -X POST "http://localhost:8000/api/upload" -F "file=@document.docx"
 
-# 鐒跺悗浣跨敤杩斿洖鐨?document_id 鎻愬彇浜嬪疄
+# 然后使用返回的 document_id 提取事实
 curl -X POST "http://localhost:8000/api/documents/abc12345/extract-facts"
 ```
 
-#### 3. 妫€娴嬪啿绐?
+#### 3. 检测冲突
 
 ```bash
 curl -X POST "http://localhost:8000/api/detect-conflicts/abc12345"
 ```
 
-#### 4. 楠岃瘉浜嬪疄
+#### 4. 验证事实
 
 ```bash
 curl -X POST "http://localhost:8000/api/documents/abc12345/verify-facts"
 ```
 
-#### 5. 鍙傝€冩枃妗ｅ姣?
+#### 5. 参考文档对比
 
 ```bash
 curl -X POST "http://localhost:8000/api/compare-references" \
@@ -209,7 +209,7 @@ curl -X POST "http://localhost:8000/api/compare-references" \
      }'
 ```
 
-#### 6. 鍥炬枃瀵规瘮
+#### 6. 图文对比
 
 ```bash
 curl -X POST "http://localhost:8000/api/compare-image-text" \
@@ -217,456 +217,456 @@ curl -X POST "http://localhost:8000/api/compare-image-text" \
      -F "document_id=abc12345"
 ```
 
-#### 7. 瀹炴椂杩涘害锛圫SE锛?
+#### 7. 实时进度（SSE）
 
 ```javascript
 const eventSource = new EventSource('http://localhost:8000/api/progress/abc12345');
 eventSource.onmessage = (event) => {
   const progress = JSON.parse(event.data);
-  console.log('杩涘害鏇存柊:', progress);
+  console.log('进度更新:', progress);
 };
 ```
 
 ---
 
-## 馃彈锔?椤圭洰缁撴瀯
+## 🏗️ 项目结构
 
 ```
 factguardian/
-鈹溾攢鈹€ backend/                          # 鍚庣鏈嶅姟
-鈹?  鈹溾攢鈹€ app/
-鈹?  鈹?  鈹溾攢鈹€ main.py                  # FastAPI 搴旂敤鍏ュ彛鐐癸紙1067琛岋級
-鈹?  鈹?  鈹斺攢鈹€ services/                 # 涓氬姟閫昏緫鏈嶅姟灞?
-鈹?  鈹?      鈹溾攢鈹€ __init__.py          # 鏈嶅姟妯″潡鍒濆鍖?
-鈹?  鈹?      鈹溾攢鈹€ parser.py            # 鏂囨。瑙ｆ瀽鏈嶅姟锛圖OCX/PDF/TXT/MD锛?
-鈹?  鈹?      鈹溾攢鈹€ llm_client.py        # LLM API 瀹㈡埛绔紙DeepSeek 灏佽锛?92琛岋級
-鈹?  鈹?      鈹溾攢鈹€ redis_client.py      # Redis 缂撳瓨瀹㈡埛绔紙鍗曚緥妯″紡锛屽唴瀛橀檷绾э級
-鈹?  鈹?      鈹溾攢鈹€ fact_extractor.py    # 浜嬪疄鎻愬彇鏈嶅姟锛堢粨鏋勫寲鎻愬彇锛?
-鈹?  鈹?      鈹溾攢鈹€ fact_schema.py       # 浜嬪疄鏁版嵁妯″瀷瀹氫箟
-鈹?  鈹?      鈹溾攢鈹€ fact_normalizer.py   # 浜嬪疄瑙勮寖鍖栨湇鍔?
-鈹?  鈹?      鈹溾攢鈹€ conflict_detector.py # 鍐茬獊妫€娴嬫湇鍔★紙734琛岋紝鎵归噺骞惰澶勭悊锛?
-鈹?  鈹?      鈹溾攢鈹€ verifier.py          # 浜嬪疄楠岃瘉鏈嶅姟锛?72琛岋紝澶栭儴鎼滅储+LLM锛?
-鈹?  鈹?      鈹溾攢鈹€ lsh_filter.py        # LSH 鐩镐技搴﹁繃婊わ紙MinHash 绠楁硶锛?
-鈹?  鈹?      鈹溾攢鈹€ search_client.py     # 澶栭儴鎼滅储瀹㈡埛绔紙Tavily/Serper/Mock锛?
-鈹?  鈹?      鈹溾攢鈹€ prompt_tuner.py      # Prompt 浼樺寲鍣紙鏉愭枡椹卞姩鎻愮ず锛?
-鈹?  鈹?      鈹溾攢鈹€ reference_comparator.py # 鍙傝€冩枃妗ｅ姣旀湇鍔★紙229琛岋級
-鈹?  鈹?      鈹溾攢鈹€ image_extractor.py   # 鍥剧墖鍐呭鎻愬彇锛?05琛岋紝澶?Vision API锛?
-鈹?  鈹?      鈹溾攢鈹€ image_text_comparator.py # 鍥炬枃涓€鑷存€у姣旀湇鍔★紙223琛岋級
-鈹?  鈹?      鈹溾攢鈹€ coref_resolver.py    # 鍏辨寚娑堣В鏈嶅姟
-鈹?  鈹?      鈹溾攢鈹€ nlp_extractor.py     # NLP 鎻愬彇鏈嶅姟
-鈹?  鈹?      鈹溾攢鈹€ semantic_indexer.py  # 璇箟绱㈠紩鏈嶅姟
-鈹?  鈹?      鈹斺攢鈹€ progress_manager.py  # 杩涘害绠＄悊鍣紙SSE 杩涘害鎺ㄩ€侊級
-鈹?  鈹溾攢鈹€ Dockerfile                   # 鍚庣瀹瑰櫒瀹氫箟锛圥ython 3.10-slim锛?
-鈹?  鈹溾攢鈹€ .dockerignore                # Docker 鏋勫缓蹇界暐鏂囦欢
-鈹?  鈹溾攢鈹€ requirements.txt             # Python 渚濊禆鍖呭垪琛?
-鈹?  鈹溾攢鈹€ test_auto.py                 # 鑷姩鍖栨祴璇曡剼鏈?
-鈹?  鈹溾攢鈹€ test_image_comparison.py     # 鍥炬枃瀵规瘮娴嬭瘯鑴氭湰
-鈹?  鈹溾攢鈹€ test_reference_comparison.py # 鍙傝€冨姣旀祴璇曡剼鏈?
-鈹?  鈹斺攢鈹€ [娴嬭瘯鏁版嵁鏂囦欢]                # test_data*.txt, *.docx, *.png 绛?
-鈹?
-鈹溾攢鈹€ frontend/                         # 鍓嶇搴旂敤
-鈹?  鈹溾攢鈹€ src/
-鈹?  鈹?  鈹溾攢鈹€ main.jsx                 # React 搴旂敤鍏ュ彛鐐?
-鈹?  鈹?  鈹溾攢鈹€ App.jsx                  # 涓诲簲鐢ㄧ粍浠讹紙璺敱鍜岀姸鎬佺鐞嗭級
-鈹?  鈹?  鈹溾攢鈹€ api.js                   # API 璋冪敤灏佽锛坅xios 灏佽锛?
-鈹?  鈹?  鈹溾攢鈹€ index.css                # 鍏ㄥ眬鏍峰紡鏂囦欢
-鈹?  鈹?  鈹斺攢鈹€ components/               # UI 缁勪欢鐩綍
-鈹?  鈹?      鈹溾攢鈹€ UploadSection.jsx    # 鏂囦欢涓婁紶缁勪欢
-鈹?  鈹?      鈹溾攢鈹€ DocumentViewer.jsx   # 鏂囨。娴忚缁勪欢锛堟敮鎸侀珮浜拰璺宠浆锛?
-鈹?  鈹?      鈹溾攢鈹€ ConflictList.jsx      # 鍐茬獊鍒楄〃缁勪欢锛堟樉绀哄啿绐佽鎯咃級
-鈹?  鈹?      鈹溾攢鈹€ RepetitionList.jsx    # 閲嶅鍐呭鍒楄〃缁勪欢
-鈹?  鈹?      鈹溾攢鈹€ VerificationResult.jsx # 鏍￠獙缁撴灉缁勪欢锛堟樉绀洪獙璇佺粨鏋滐級
-鈹?  鈹?      鈹溾攢鈹€ FunLoading.jsx       # 鍔犺浇鍔ㄧ敾缁勪欢锛圫SE 杩涘害鏄剧ず锛?
-鈹?  鈹?      鈹溾攢鈹€ MultiDocComparison.jsx # 澶氭枃妗ｅ姣旂粍浠讹紙鍙傝€冨姣斿姛鑳斤級
-鈹?  鈹?      鈹斺攢鈹€ ImageTextComparison.jsx # 鍥炬枃瀵规瘮缁勪欢
-鈹?  鈹溾攢鈹€ public/                       # 闈欐€佽祫婧愮洰褰?
-鈹?  鈹溾攢鈹€ Dockerfile                   # 鍓嶇瀹瑰櫒瀹氫箟锛堝闃舵鏋勫缓锛?
-鈹?  鈹溾攢鈹€ .dockerignore                # Docker 鏋勫缓蹇界暐鏂囦欢
-鈹?  鈹溾攢鈹€ package.json                  # Node.js 渚濊禆閰嶇疆
-鈹?  鈹溾攢鈹€ package-lock.json             # 渚濊禆閿佸畾鏂囦欢
-鈹?  鈹溾攢鈹€ vite.config.js                # Vite 鏋勫缓閰嶇疆
-鈹?  鈹溾攢鈹€ tailwind.config.js            # Tailwind CSS 閰嶇疆
-鈹?  鈹溾攢鈹€ postcss.config.js             # PostCSS 閰嶇疆
-鈹?  鈹斺攢鈹€ index.html                    # HTML 鍏ュ彛鏂囦欢
-鈹?
-鈹溾攢鈹€ image/                            # 鍥剧墖璧勬簮鐩綍锛堢ず渚嬪浘鐗囩瓑锛?
-鈹?
-鈹溾攢鈹€ .vscode/                          # VS Code 閰嶇疆鐩綍
-鈹?
-鈹溾攢鈹€ docker-compose.yml                # Docker Compose 寮€鍙戠幆澧冮厤缃?
-鈹溾攢鈹€ docker-compose.prod.yml           # Docker Compose 鐢熶骇鐜閰嶇疆锛堝宸插垱寤猴級
-鈹溾攢鈹€ start-docker.ps1                  # Windows PowerShell 鍚姩鑴氭湰
-鈹溾攢鈹€ stop-docker.ps1                   # Windows PowerShell 鍋滄鑴氭湰
-鈹溾攢鈹€ restart-docker.ps1                # Windows PowerShell 閲嶅惎鑴氭湰
-鈹?
-鈹溾攢鈹€ .env                              # 鐜鍙橀噺閰嶇疆锛堥渶鑷鍒涘缓锛?
-鈹溾攢鈹€ .env.example                      # 鐜鍙橀噺妯℃澘
-鈹溾攢鈹€ .gitignore                        # Git 蹇界暐鏂囦欢閰嶇疆
-鈹?
-鈹溾攢鈹€ README.md                         # 椤圭洰璇存槑鏂囨。锛堟湰鏂囦欢锛?
-鈹溾攢鈹€ FRONTEND_GUIDE.md                 # 鍓嶇寮€鍙戞寚鍗?
-鈹溾攢鈹€ PROGRESS.md                       # 寮€鍙戣繘搴︽枃妗?
-鈹溾攢鈹€ EXPERIMENT_REPORT.md              # 瀹為獙鎶ュ憡鏂囨。
-鈹溾攢鈹€ TODO.md                           # 寰呭姙浜嬮」鍒楄〃
-鈹溾攢鈹€ 鍒嗗伐.md                            # 椤圭洰鍒嗗伐鏂囨。
-鈹斺攢鈹€ ZXY_BRANCH_REVIEW.md             # 鍒嗘敮瀹℃煡鏂囨。
+├── backend/                          # 后端服务
+│   ├── app/
+│   │   ├── main.py                  # FastAPI 应用入口点（1067行）
+│   │   └── services/                 # 业务逻辑服务层
+│   │       ├── __init__.py          # 服务模块初始化
+│   │       ├── parser.py            # 文档解析服务（DOCX/PDF/TXT/MD）
+│   │       ├── llm_client.py        # LLM API 客户端（DeepSeek 封装，292行）
+│   │       ├── redis_client.py      # Redis 缓存客户端（单例模式，内存降级）
+│   │       ├── fact_extractor.py    # 事实提取服务（结构化提取）
+│   │       ├── fact_schema.py       # 事实数据模型定义
+│   │       ├── fact_normalizer.py   # 事实规范化服务
+│   │       ├── conflict_detector.py # 冲突检测服务（734行，批量并行处理）
+│   │       ├── verifier.py          # 事实验证服务（272行，外部搜索+LLM）
+│   │       ├── lsh_filter.py        # LSH 相似度过滤（MinHash 算法）
+│   │       ├── search_client.py     # 外部搜索客户端（Tavily/Serper/Mock）
+│   │       ├── prompt_tuner.py      # Prompt 优化器（材料驱动提示）
+│   │       ├── reference_comparator.py # 参考文档对比服务（229行）
+│   │       ├── image_extractor.py   # 图片内容提取（405行，多 Vision API）
+│   │       ├── image_text_comparator.py # 图文一致性对比服务（223行）
+│   │       ├── coref_resolver.py    # 共指消解服务
+│   │       ├── nlp_extractor.py     # NLP 提取服务
+│   │       ├── semantic_indexer.py  # 语义索引服务
+│   │       └── progress_manager.py  # 进度管理器（SSE 进度推送）
+│   ├── Dockerfile                   # 后端容器定义（Python 3.10-slim）
+│   ├── .dockerignore                # Docker 构建忽略文件
+│   ├── requirements.txt             # Python 依赖包列表
+│   ├── test_auto.py                 # 自动化测试脚本
+│   ├── test_image_comparison.py     # 图文对比测试脚本
+│   ├── test_reference_comparison.py # 参考对比测试脚本
+│   └── [测试数据文件]                # test_data*.txt, *.docx, *.png 等
+│
+├── frontend/                         # 前端应用
+│   ├── src/
+│   │   ├── main.jsx                 # React 应用入口点
+│   │   ├── App.jsx                  # 主应用组件（路由和状态管理）
+│   │   ├── api.js                   # API 调用封装（axios 封装）
+│   │   ├── index.css                # 全局样式文件
+│   │   └── components/               # UI 组件目录
+│   │       ├── UploadSection.jsx    # 文件上传组件
+│   │       ├── DocumentViewer.jsx   # 文档浏览组件（支持高亮和跳转）
+│   │       ├── ConflictList.jsx      # 冲突列表组件（显示冲突详情）
+│   │       ├── RepetitionList.jsx    # 重复内容列表组件
+│   │       ├── VerificationResult.jsx # 校验结果组件（显示验证结果）
+│   │       ├── FunLoading.jsx       # 加载动画组件（SSE 进度显示）
+│   │       ├── MultiDocComparison.jsx # 多文档对比组件（参考对比功能）
+│   │       └── ImageTextComparison.jsx # 图文对比组件
+│   ├── public/                       # 静态资源目录
+│   ├── Dockerfile                   # 前端容器定义（多阶段构建）
+│   ├── .dockerignore                # Docker 构建忽略文件
+│   ├── package.json                  # Node.js 依赖配置
+│   ├── package-lock.json             # 依赖锁定文件
+│   ├── vite.config.js                # Vite 构建配置
+│   ├── tailwind.config.js            # Tailwind CSS 配置
+│   ├── postcss.config.js             # PostCSS 配置
+│   └── index.html                    # HTML 入口文件
+│
+├── image/                            # 图片资源目录（示例图片等）
+│
+├── .vscode/                          # VS Code 配置目录
+│
+├── docker-compose.yml                # Docker Compose 开发环境配置
+├── docker-compose.prod.yml           # Docker Compose 生产环境配置（如已创建）
+├── start-docker.ps1                  # Windows PowerShell 启动脚本
+├── stop-docker.ps1                   # Windows PowerShell 停止脚本
+├── restart-docker.ps1                # Windows PowerShell 重启脚本
+│
+├── .env                              # 环境变量配置（需自行创建）
+├── .env.example                      # 环境变量模板
+├── .gitignore                        # Git 忽略文件配置
+│
+├── README.md                         # 项目说明文档（本文件）
+├── FRONTEND_GUIDE.md                 # 前端开发指南
+├── PROGRESS.md                       # 开发进度文档
+├── EXPERIMENT_REPORT.md              # 实验报告文档
+├── TODO.md                           # 待办事项列表
+├── 分工.md                            # 项目分工文档
+└── ZXY_BRANCH_REVIEW.md             # 分支审查文档
 ```
 
 ---
 
-## 馃敡 寮€鍙戞寚鍗?
+## 🔧 开发指南
 
-### 鏈湴寮€鍙戠幆澧?
+### 本地开发环境
 
-#### 鍚庣寮€鍙?
+#### 后端开发
 
 ```bash
 cd backend
 
-# 鍒涘缓铏氭嫙鐜
+# 创建虚拟环境
 python -m venv venv
 source venv/bin/activate  # Windows: venv\Scripts\activate
 
-# 瀹夎渚濊禆
+# 安装依赖
 pip install -r requirements.txt
 
-# 杩愯寮€鍙戞湇鍔″櫒
+# 运行开发服务器
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-#### 鍓嶇寮€鍙?
+#### 前端开发
 
 ```bash
 cd frontend
 
-# 瀹夎渚濊禆
+# 安装依赖
 npm install
 
-# 杩愯寮€鍙戞湇鍔″櫒
+# 运行开发服务器
 npm run dev
 ```
 
-### 浠ｇ爜瑙勮寖
+### 代码规范
 
-- **Python**锛氶伒寰?PEP 8锛屼娇鐢ㄧ被鍨嬫彁绀猴紙Type Hints锛?
-- **JavaScript**锛氫娇鐢?ES6+ 璇硶锛岄伒寰?ESLint 瑙勫垯
-- **鎻愪氦淇℃伅**锛氫娇鐢ㄧ害瀹氬紡鎻愪氦鏍煎紡 `[绫诲瀷] 绠€鐭弿杩癭
-  - 绫诲瀷锛歚feat`锛堟柊鍔熻兘锛夈€乣fix`锛堜慨澶嶏級銆乣refactor`锛堥噸鏋勶級銆乣docs`锛堟枃妗ｏ級
+- **Python**：遵循 PEP 8，使用类型提示（Type Hints）
+- **JavaScript**：使用 ES6+ 语法，遵循 ESLint 规则
+- **提交信息**：使用约定式提交格式 `[类型] 简短描述`
+  - 类型：`feat`（新功能）、`fix`（修复）、`refactor`（重构）、`docs`（文档）
 
-### 璋冭瘯
+### 调试
 
 ```bash
-# 鏌ョ湅鏈嶅姟鏃ュ織
+# 查看服务日志
 docker-compose logs backend
 docker-compose logs frontend
 
-# 瀹炴椂璺熻釜鏃ュ織
+# 实时跟踪日志
 docker-compose logs -f backend
 
-# 璁块棶瀹瑰櫒 shell
+# 访问容器 shell
 docker-compose exec backend bash
 docker-compose exec frontend sh
 
-# 娴嬭瘯 API 绔偣
+# 测试 API 端点
 curl http://localhost:8000/health
 ```
 
-### 娣诲姞渚濊禆
+### 添加依赖
 
-**鍚庣锛?*
-1. 鏇存柊 `backend/requirements.txt`
-2. 閲嶆柊鏋勫缓 Docker 闀滃儚锛?
+**后端：**
+1. 更新 `backend/requirements.txt`
+2. 重新构建 Docker 镜像：
    ```bash
    docker-compose build backend
    ```
-3. 閲嶅惎鏈嶅姟锛?
+3. 重启服务：
    ```bash
    docker-compose restart backend
    ```
 
-**鍓嶇锛?*
-1. 鏇存柊 `frontend/package.json`
-2. 閲嶆柊鏋勫缓 Docker 闀滃儚锛?
+**前端：**
+1. 更新 `frontend/package.json`
+2. 重新构建 Docker 镜像：
    ```bash
    docker-compose build frontend
    ```
-3. 閲嶅惎鏈嶅姟锛?
+3. 重启服务：
    ```bash
    docker-compose restart frontend
    ```
 
-### 娴嬭瘯
+### 测试
 
 ```bash
-# 鍚庣娴嬭瘯
+# 后端测试
 cd backend
 python test_auto.py test_data_simple.txt
 
-# 鍥炬枃瀵规瘮娴嬭瘯
+# 图文对比测试
 python test_auto.py document.docx image-compare architecture.png
 
-# 鍙傝€冨姣旀祴璇?
+# 参考对比测试
 python test_auto.py main.docx ref-compare reference1.docx
 ```
 
 ---
 
-## 馃摗 API 鏂囨。
+## 📡 API 文档
 
-### 鏍稿績绔偣
+### 核心端点
 
-| 绔偣                                         | 鏂规硶 | 鎻忚堪                           |
+| 端点                                         | 方法 | 描述                           |
 | -------------------------------------------- | ---- | ------------------------------ |
-| `/`                                          | GET  | API 淇℃伅                       |
-| `/health`                                    | GET  | 鏈嶅姟鍋ュ悍妫€鏌?                  |
-| `/api/upload`                                | POST | 涓婁紶骞惰В鏋愭枃妗?                |
-| `/api/extract-facts`                         | POST | 浠庢枃妗ｆ彁鍙栦簨瀹?                |
-| `/api/documents/{document_id}/extract-facts` | POST | 鏍规嵁鏂囨。ID鎻愬彇浜嬪疄             |
-| `/api/facts/{document_id}`                   | GET  | 妫€绱㈡枃妗ｄ簨瀹?                  |
-| `/api/detect-conflicts/{document_id}`        | POST | 妫€娴嬫枃妗ｅ啿绐?                  |
-| `/api/conflicts/{document_id}`               | GET  | 妫€绱㈡枃妗ｅ啿绐?                  |
-| `/api/documents/{document_id}/verify-facts`  | POST | 楠岃瘉鏂囨。浜嬪疄                   |
-| `/api/analyze`                               | POST | 瀹屾暣鍒嗘瀽娴佺▼锛堜笂浼犫啋鎻愬彇鈫掓娴嬶級 |
-| `/api/upload-multiple`                       | POST | 澶氭枃浠朵笂浼狅紙涓绘枃妗?鍙傝€冩枃妗ｏ級  |
-| `/api/compare-references`                    | POST | 瀵规瘮鍙傝€冩枃妗?                  |
-| `/api/extract-from-image`                    | POST | 鎻愬彇鍥剧墖鍐呭                   |
-| `/api/compare-image-text`                    | POST | 瀵规瘮鍥剧墖涓庢枃鏈竴鑷存€?          |
-| `/api/progress/{document_id}`                | GET  | SSE 杩涘害鎺ㄩ€?                  |
-| `/api/progress-status/{document_id}`         | GET  | 鑾峰彇杩涘害鐘舵€侊紙杞鏂瑰紡锛?      |
+| `/`                                          | GET  | API 信息                       |
+| `/health`                                    | GET  | 服务健康检查                   |
+| `/api/upload`                                | POST | 上传并解析文档                 |
+| `/api/extract-facts`                         | POST | 从文档提取事实                 |
+| `/api/documents/{document_id}/extract-facts` | POST | 根据文档ID提取事实             |
+| `/api/facts/{document_id}`                   | GET  | 检索文档事实                   |
+| `/api/detect-conflicts/{document_id}`        | POST | 检测文档冲突                   |
+| `/api/conflicts/{document_id}`               | GET  | 检索文档冲突                   |
+| `/api/documents/{document_id}/verify-facts`  | POST | 验证文档事实                   |
+| `/api/analyze`                               | POST | 完整分析流程（上传→提取→检测） |
+| `/api/upload-multiple`                       | POST | 多文件上传（主文档+参考文档）  |
+| `/api/compare-references`                    | POST | 对比参考文档                   |
+| `/api/extract-from-image`                    | POST | 提取图片内容                   |
+| `/api/compare-image-text`                    | POST | 对比图片与文本一致性           |
+| `/api/progress/{document_id}`                | GET  | SSE 进度推送                   |
+| `/api/progress-status/{document_id}`         | GET  | 获取进度状态（轮询方式）       |
 
-瀹屾暣鐨勪氦浜掑紡 API 鏂囨。璇疯闂細http://localhost:8000/docs
+完整的交互式 API 文档请访问：http://localhost:8000/docs
 
 ---
 
-## 馃惓 Docker 閮ㄧ讲
+## 🐳 Docker 部署
 
-### 寮€鍙戠幆澧?
+### 开发环境
 
 ```bash
-# 鍚姩鎵€鏈夋湇鍔?
+# 启动所有服务
 docker-compose up -d
 
-# 鏌ョ湅鏃ュ織
+# 查看日志
 docker-compose logs -f backend
 docker-compose logs -f frontend
 
-# 鍋滄鏈嶅姟
+# 停止服务
 docker-compose down
 ```
 
-### 鐢熶骇鐜
+### 生产环境
 
 ```bash
-# 浣跨敤鐢熶骇鐜閰嶇疆锛堝宸插垱寤猴級
+# 使用生产环境配置（如已创建）
 docker-compose -f docker-compose.prod.yml up -d --build
 
-# 鏌ョ湅鏈嶅姟鐘舵€?
+# 查看服务状态
 docker-compose -f docker-compose.prod.yml ps
 ```
 
-### 鏈嶅姟绠＄悊鑴氭湰锛圵indows锛?
+### 服务管理脚本（Windows）
 
 ```powershell
-# 鍚姩鏈嶅姟
+# 启动服务
 .\start-docker.ps1
 
-# 鍋滄鏈嶅姟
+# 停止服务
 .\stop-docker.ps1
 
-# 閲嶅惎鏈嶅姟
+# 重启服务
 .\restart-docker.ps1
 ```
 
 ---
 
-## 馃攳 鎶€鏈灦鏋?
+## 🔍 技术架构
 
-### 绯荤粺鏋舵瀯鍥?
+### 系统架构图
 
 ```
-鈹屸攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹?
-鈹?  Frontend  鈹? React + Vite + Tailwind CSS
-鈹? (Port 3000)鈹?
-鈹斺攢鈹€鈹€鈹€鈹€鈹€鈹攢鈹€鈹€鈹€鈹€鈹€鈹?
-       鈹?HTTP/SSE
-鈹屸攢鈹€鈹€鈹€鈹€鈹€鈻尖攢鈹€鈹€鈹€鈹€鈹€鈹?
-鈹?  Backend   鈹? FastAPI + Python 3.10
-鈹? (Port 8000)鈹?
-鈹斺攢鈹€鈹€鈹€鈹€鈹€鈹攢鈹€鈹€鈹€鈹€鈹€鈹?
-       鈹?
-   鈹屸攢鈹€鈹€鈹粹攢鈹€鈹€鈹攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹?
-   鈹?      鈹?         鈹?         鈹?
-鈹屸攢鈹€鈻尖攢鈹€鈹?鈹屸攢鈻尖攢鈹€鈹? 鈹屸攢鈹€鈹€鈹€鈻尖攢鈹€鈹€鈹€鈹?鈹屸攢鈹€鈹€鈻尖攢鈹€鈹€鈹?
-鈹俁edis鈹?鈹侺LM 鈹? 鈹?Search  鈹?鈹?Vision 鈹?
-鈹侰ache鈹?鈹侫PI 鈹? 鈹? APIs   鈹?鈹? APIs  鈹?
-鈹斺攢鈹€鈹€鈹€鈹€鈹?鈹斺攢鈹€鈹€鈹€鈹? 鈹斺攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹?鈹斺攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹?
+┌─────────────┐
+│   Frontend  │  React + Vite + Tailwind CSS
+│  (Port 3000)│
+└──────┬──────┘
+       │ HTTP/SSE
+┌──────▼──────┐
+│   Backend   │  FastAPI + Python 3.10
+│  (Port 8000)│
+└──────┬──────┘
+       │
+   ┌───┴───┬──────────┬──────────┐
+   │       │          │          │
+┌──▼──┐ ┌─▼──┐  ┌────▼────┐ ┌───▼───┐
+│Redis│ │LLM │  │ Search  │ │ Vision │
+│Cache│ │API │  │  APIs   │ │  APIs  │
+└─────┘ └────┘  └─────────┘ └────────┘
 ```
 
-### 鎶€鏈爤
+### 技术栈
 
-**鍚庣**
+**后端**
 - Python 3.10+
 - FastAPI 0.104+
-- Uvicorn锛圓SGI 鏈嶅姟鍣級
-- Redis锛堢紦瀛橈紝鏀寔鍐呭瓨闄嶇骇锛?
-- DeepSeek API锛圠LM锛?
-- Tavily/Serper锛堟悳绱?API锛屾敮鎸?Mock 闄嶇骇锛?
-- Claude/GPT-4V/璞嗗寘锛圴ision API锛?
+- Uvicorn（ASGI 服务器）
+- Redis（缓存，支持内存降级）
+- DeepSeek API（LLM）
+- Tavily/Serper（搜索 API，支持 Mock 降级）
+- Claude/GPT-4V/豆包（Vision API）
 
-**鍓嶇**
+**前端**
 - React 18
 - Vite 5
 - Tailwind CSS 3
-- Axios锛圚TTP 瀹㈡埛绔級
-- Server-Sent Events锛堝疄鏃惰繘搴︽帹閫侊級
+- Axios（HTTP 客户端）
+- Server-Sent Events（实时进度推送）
 
-**鍩虹璁炬柦**
+**基础设施**
 - Docker & Docker Compose
-- Nginx锛堝墠绔敓浜х幆澧冿級
+- Nginx（前端生产环境）
 - Redis 7
 
 ---
 
-## 馃搳 鎬ц兘鎸囨爣
+## 📊 性能指标
 
-- **浜嬪疄鎻愬彇**锛氬钩鍧?2-5 绉?绔犺妭锛堝彇鍐充簬绔犺妭闀垮害鍜?LLM 鍝嶅簲鏃堕棿锛?
-- **鍐茬獊妫€娴?*锛?00 瀵逛簨瀹炵害 15-20 绉掞紙鎵归噺骞惰澶勭悊锛宐atch_size=10锛?
-- **浜嬪疄楠岃瘉**锛氬崟涓簨瀹炵害 3-5 绉掞紙鍖呭惈鎼滅储鍜?LLM 璇勪及锛?
-- **鍙傝€冨姣?*锛?00 涓钀藉姣旂害 30 绉?
-- **鍥炬枃瀵规瘮**锛氬崟娆″姣旂害 10 绉掞紙鍖呭惈鍥剧墖鎻愬彇鍜屾枃鏈姣旓級
-
----
-
-## 馃洜锔?鏁呴殰鎺掗櫎
-
-### 甯歌闂
-
-#### 1. 鏈嶅姟鏃犳硶鍚姩
-
-**闂**锛欴ocker 瀹瑰櫒鏃犳硶鍚姩
-
-**瑙ｅ喅鏂规**锛?
-- 妫€鏌?Docker Desktop 鏄惁姝ｅ湪杩愯
-- 楠岃瘉绔彛 8000銆?000銆?379 鏄惁琚崰鐢?
-- 鏌ョ湅鏈嶅姟鏃ュ織锛歚docker-compose logs backend`
-- 妫€鏌?`.env` 鏂囦欢鏄惁瀛樺湪涓旈厤缃纭?
-
-#### 2. API 瀵嗛挜閿欒
-
-**闂**锛歀LM 鍔熻兘涓嶅彲鐢?
-
-**瑙ｅ喅鏂规**锛?
-- 纭繚 `.env` 鏂囦欢瀛樺湪骞跺寘鍚湁鏁堢殑 `DEEPSEEK_API_KEY`
-- 妫€鏌?API 瀵嗛挜鏍煎紡鍜屾潈闄?
-- 楠岃瘉涓?DeepSeek 鏈嶅姟鐨勭綉缁滆繛鎺?
-- 鏌ョ湅鍚庣鏃ュ織纭閿欒淇℃伅
-
-#### 3. Redis 杩炴帴澶辫触
-
-**闂**锛氬悗绔棤娉曡繛鎺?Redis
-
-**瑙ｅ喅鏂规**锛?
-- 妫€鏌?Redis 瀹瑰櫒鏄惁姝ｅ父杩愯锛歚docker-compose ps redis`
-- 楠岃瘉 `REDIS_HOST` 鐜鍙橀噺锛堝紑鍙戠幆澧冨簲涓?`redis`锛?
-- 鏌ョ湅 Redis 鏃ュ織锛歚docker-compose logs redis`
-- 绯荤粺浼氳嚜鍔ㄩ檷绾у埌鍐呭瓨瀛樺偍锛屼絾浼氳褰曡鍛婃棩蹇?
-
-#### 4. 鍓嶇璺敱 404
-
-**闂**锛氬埛鏂伴〉闈㈠悗鍑虹幇 404
-
-**瑙ｅ喅鏂规**锛?
-- 纭繚浣跨敤鐢熶骇鐜閰嶇疆锛圢ginx 宸查厤缃?SPA 璺敱鏀寔锛?
-- 妫€鏌?Nginx 閰嶇疆涓殑 `try_files` 璁剧疆
-- 寮€鍙戠幆澧冧娇鐢?Vite 寮€鍙戞湇鍔″櫒锛屾棤闇€鐗规畩閰嶇疆
-
-#### 5. 鍐呭瓨涓嶈冻
-
-**闂**锛氬鐞嗗ぇ鏂囨。鏃跺唴瀛樻孩鍑?
-
-**瑙ｅ喅鏂规**锛?
-- 澧炲姞 Docker Desktop 鍐呭瓨鍒嗛厤锛堟渶浣?8GB锛屾帹鑽?16GB锛?
-- 鍏抽棴鍏朵粬鍐呭瓨瀵嗛泦鍨嬪簲鐢ㄧ▼搴?
-- 鐩戞帶璧勬簮浣跨敤锛歚docker stats`
-- 鑰冭檻鍒嗘壒澶勭悊澶ф枃妗?
-
-#### 6. 鏂囦欢涓婁紶澶辫触
-
-**闂**锛氭枃浠朵笂浼犺鎷掔粷
-
-**瑙ｅ喅鏂规**锛?
-- 妫€鏌ユ枃浠跺ぇ灏忛檺鍒讹紙FastAPI 榛樿鏃犻檺鍒讹紝浣嗗缓璁?< 50MB锛?
-- 楠岃瘉鏀寔鐨勬枃浠舵牸寮忥紙DOCX銆丳DF銆乀XT銆丮D锛?
-- 纭繚鏂囦欢鏉冮檺姝ｇ‘
-- 鏌ョ湅鍚庣鏃ュ織鑾峰彇璇︾粏閿欒淇℃伅
-
-### 鎬ц兘璋冧紭
-
-- **Redis 閰嶇疆**锛氳皟鏁?Redis 鍐呭瓨璁剧疆浠ラ€傚簲澶у瀷鏂囨。锛坄maxmemory` 鍙傛暟锛?
-- **LLM 鎵归噺澶勭悊**锛氳皟鏁?`batch_size` 鍙傛暟锛堥粯璁?10锛変互浼樺寲 API 浣跨敤
-- **鍐茬獊妫€娴?*锛氳皟鏁?`max_pairs` 鍙傛暟锛堥粯璁?300锛夊钩琛″噯纭€у拰閫熷害
-- **鍓嶇浼樺寲**锛氱敓浜х幆澧冧娇鐢?Nginx锛屽惎鐢?Gzip 鍘嬬缉鍜岄潤鎬佽祫婧愮紦瀛?
+- **事实提取**：平均 2-5 秒/章节（取决于章节长度和 LLM 响应时间）
+- **冲突检测**：300 对事实约 15-20 秒（批量并行处理，batch_size=10）
+- **事实验证**：单个事实约 3-5 秒（包含搜索和 LLM 评估）
+- **参考对比**：100 个段落对比约 30 秒
+- **图文对比**：单次对比约 10 秒（包含图片提取和文本对比）
 
 ---
 
-## 馃摑 鏇存柊鏃ュ織
+## 🛠️ 故障排除
+
+### 常见问题
+
+#### 1. 服务无法启动
+
+**问题**：Docker 容器无法启动
+
+**解决方案**：
+- 检查 Docker Desktop 是否正在运行
+- 验证端口 8000、3000、6379 是否被占用
+- 查看服务日志：`docker-compose logs backend`
+- 检查 `.env` 文件是否存在且配置正确
+
+#### 2. API 密钥错误
+
+**问题**：LLM 功能不可用
+
+**解决方案**：
+- 确保 `.env` 文件存在并包含有效的 `DEEPSEEK_API_KEY`
+- 检查 API 密钥格式和权限
+- 验证与 DeepSeek 服务的网络连接
+- 查看后端日志确认错误信息
+
+#### 3. Redis 连接失败
+
+**问题**：后端无法连接 Redis
+
+**解决方案**：
+- 检查 Redis 容器是否正常运行：`docker-compose ps redis`
+- 验证 `REDIS_HOST` 环境变量（开发环境应为 `redis`）
+- 查看 Redis 日志：`docker-compose logs redis`
+- 系统会自动降级到内存存储，但会记录警告日志
+
+#### 4. 前端路由 404
+
+**问题**：刷新页面后出现 404
+
+**解决方案**：
+- 确保使用生产环境配置（Nginx 已配置 SPA 路由支持）
+- 检查 Nginx 配置中的 `try_files` 设置
+- 开发环境使用 Vite 开发服务器，无需特殊配置
+
+#### 5. 内存不足
+
+**问题**：处理大文档时内存溢出
+
+**解决方案**：
+- 增加 Docker Desktop 内存分配（最低 8GB，推荐 16GB）
+- 关闭其他内存密集型应用程序
+- 监控资源使用：`docker stats`
+- 考虑分批处理大文档
+
+#### 6. 文件上传失败
+
+**问题**：文件上传被拒绝
+
+**解决方案**：
+- 检查文件大小限制（FastAPI 默认无限制，但建议 < 50MB）
+- 验证支持的文件格式（DOCX、PDF、TXT、MD）
+- 确保文件权限正确
+- 查看后端日志获取详细错误信息
+
+### 性能调优
+
+- **Redis 配置**：调整 Redis 内存设置以适应大型文档（`maxmemory` 参数）
+- **LLM 批量处理**：调整 `batch_size` 参数（默认 10）以优化 API 使用
+- **冲突检测**：调整 `max_pairs` 参数（默认 300）平衡准确性和速度
+- **前端优化**：生产环境使用 Nginx，启用 Gzip 压缩和静态资源缓存
+
+---
+
+## 📝 更新日志
 
 ### v1.0.0 (2025-01)
 
-**鏍稿績鍔熻兘**
-- 鉁?鏂囨。瑙ｆ瀽锛圖OCX銆丳DF銆乀XT銆丮D锛?
-- 鉁?浜嬪疄鎻愬彇锛堢粨鏋勫寲鎻愬彇锛屾敮鎸佸绉嶄簨瀹炵被鍨嬶級
-- 鉁?鍐茬獊妫€娴嬶紙鏁版嵁涓嶄竴鑷淬€侀€昏緫鐭涚浘銆佹椂闂村啿绐侊級
-- 鉁?浜嬪疄楠岃瘉锛堝閮ㄦ悳绱?+ LLM 璇勪及锛?
-- 鉁?閲嶅鍐呭妫€娴?
+**核心功能**
+- ✅ 文档解析（DOCX、PDF、TXT、MD）
+- ✅ 事实提取（结构化提取，支持多种事实类型）
+- ✅ 冲突检测（数据不一致、逻辑矛盾、时间冲突）
+- ✅ 事实验证（外部搜索 + LLM 评估）
+- ✅ 重复内容检测
 
-**鎵╁睍鍔熻兘**
-- 鉁?鍙傝€冩枃妗ｅ姣?
-- 鉁?鍥炬枃涓€鑷存€у姣?
+**扩展功能**
+- ✅ 参考文档对比
+- ✅ 图文一致性对比
 
-**鎬ц兘浼樺寲**
-- 鉁?鎵归噺骞惰澶勭悊
-- 鉁?Redis 缂撳瓨锛堟敮鎸佸唴瀛橀檷绾э級
-- 鉁?SSE 瀹炴椂杩涘害鎺ㄩ€?
-- 鉁?LSH 鐩镐技搴﹁繃婊わ紙鍙€夛級
+**性能优化**
+- ✅ 批量并行处理
+- ✅ Redis 缓存（支持内存降级）
+- ✅ SSE 实时进度推送
+- ✅ LSH 相似度过滤（可选）
 
-**绋冲畾鎬ф彁鍗?*
-- 鉁?瀹屽杽鐨勯敊璇鐞嗗拰瀹归敊鏈哄埗
-- 鉁?JSON 瑙ｆ瀽瀹归敊锛堝绛栫暐鎻愬彇锛?
-- 鉁?鏈嶅姟闄嶇骇绛栫暐锛圧edis銆佹悳绱€乂ision API锛?
-- 鉁?鍋ュ悍妫€鏌ョ鐐?
-
----
-
-## 馃懃 椤圭洰鎴愬憳
-
-- **瑭规睙鍙剁厹** (10235501471) - 鍐茬獊鐩戞祴鍔熻兘瀹炵幇
-- **椹垝绔?* (10235501462) - 鍐茬獊鐩戞祴鍔熻兘浼樺寲涓庡墠绔〉闈㈡惌寤?
-- **寮犳鎵?* (10235501413) - 鎵╁睍鍔熻兘瀹炵幇
-
-璇︾粏鍒嗗伐璇峰弬鑰?[鍒嗗伐.md](鍒嗗伐.md)
+**稳定性提升**
+- ✅ 完善的错误处理和容错机制
+- ✅ JSON 解析容错（多策略提取）
+- ✅ 服务降级策略（Redis、搜索、Vision API）
+- ✅ 健康检查端点
 
 ---
 
-## 馃摎 鐩稿叧鏂囨。
+## 👥 项目成员
 
-- [瀹為獙鎶ュ憡](EXPERIMENT_REPORT.md) - 璇︾粏瀹為獙鎶ュ憡
-- [寰呭姙浜嬮」](TODO.md) - 寮€鍙戣矾绾垮浘
-- [鍒嗗伐鏂囨。](鍒嗗伐.md) - 椤圭洰鍒嗗伐璇存槑
+- **詹江叶煜** (10235501471) - 冲突监测功能实现
+- **马舒童** (10235501462) - 冲突监测功能优化与前端页面搭建
+- **张欣扬** (10235501413) - 扩展功能实现
 
----
-
-## 馃檹 鑷磋阿
-
-- [FastAPI](https://fastapi.tiangolo.com/) - 鐜颁唬鍖栫殑 Python Web 妗嗘灦
-- [React](https://react.dev/) - 鐢ㄦ埛鐣岄潰搴?
-- [DeepSeek](https://www.deepseek.com/) - 澶ц瑷€妯″瀷鏈嶅姟
-- [Redis](https://redis.io/) - 鍐呭瓨鏁版嵁缁撴瀯瀛樺偍
-- [Vite](https://vitejs.dev/) - 涓嬩竴浠ｅ墠绔瀯寤哄伐鍏?
-- [Tailwind CSS](https://tailwindcss.com/) - 瀹炵敤浼樺厛鐨?CSS 妗嗘灦
+详细分工请参考 [分工.md](分工.md)
 
 ---
 
-## 馃搫 璁稿彲璇?
+## 📚 相关文档
 
-鏈」鐩噰鐢?MIT 璁稿彲璇?- 鏌ョ湅 [LICENSE](LICENSE) 鏂囦欢浜嗚В璇︽儏銆?
+- [实验报告](EXPERIMENT_REPORT.md) - 详细实验报告
+- [待办事项](TODO.md) - 开发路线图
+- [分工文档](分工.md) - 项目分工说明
+
+---
+
+## 🙏 致谢
+
+- [FastAPI](https://fastapi.tiangolo.com/) - 现代化的 Python Web 框架
+- [React](https://react.dev/) - 用户界面库
+- [DeepSeek](https://www.deepseek.com/) - 大语言模型服务
+- [Redis](https://redis.io/) - 内存数据结构存储
+- [Vite](https://vitejs.dev/) - 下一代前端构建工具
+- [Tailwind CSS](https://tailwindcss.com/) - 实用优先的 CSS 框架
+
+---
+
+## 📄 许可证
+
+本项目采用 MIT 许可证 - 查看 [LICENSE](LICENSE) 文件了解详情。
