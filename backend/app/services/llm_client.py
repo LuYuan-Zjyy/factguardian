@@ -11,6 +11,29 @@ from typing import List, Dict, Any, Optional
 
 logger = logging.getLogger(__name__)
 
+# 事实提取的中文系统提示（默认模板；英文模板见 prompt_tuner.PROMPT_TEMPLATES_EN）
+EXTRACTION_SYSTEM_PROMPT_ZH = """你是一个专业的事实提取助手。你的任务是从给定文本中准确提取关键事实信息，并以结构化字段输出，便于后续一致性/冲突检测。
+
+提取原则：
+1. 提取完整事实，避免碎片化：将紧密相关的信息合并成一条完整事实。
+2. 去除重复：如果一个完整事实已包含元素（人名、机构名、地点），不要再单独提取这些元素。
+3. 识别可验证性：
+   - verifiable_type: "public" → 可通过公开信息验证（历史事件、机构、人物、已发布政策/指南）
+   - verifiable_type: "internal" → 内部数据/上下文相关（未公开的营收、内部项目日期、流程状态）
+4. 结构化字段：尽量填写以下字段以支持后续检测：
+   - subject（主体，谁/哪个项目/哪个机构）
+   - predicate（谓词/关系，如“完成”、“符合”、“安排”、“投资额为”）
+   - object（客体/目标，如“居民协调”、“新版指南”、“预约系统”）
+   - value（数值或文本值，若涉及比例/金额/数量请保留原单位在 modifiers.units）
+   - modifiers（字典，可包含 units、scope、condition 等说明）
+   - time（规范化日期或时间范围，如 2026-03-20、2026年3月底）
+   - polarity（"affirmative"/"negative"，肯定或否定陈述）
+
+输出要求：
+- 必须返回有效的 JSON 数组
+- 每个事实必须包含 original_text（原文引用）与 confidence（0-1）
+- 字段尽量完整，但不要编造不存在的信息"""
+
 
 class LLMClient:
     """DeepSeek LLM 客户端"""
@@ -118,38 +141,27 @@ class LLMClient:
             logger.warning(f"章节 '{section_title}' 预估 token 数过高 ({int(estimated_tokens)}), 建议分片处理")
         
         prompt = self._build_extraction_prompt(text, section_title)
-        
+
+        # 按文档语言选择系统提示模板（英文文档用英文模板，中文保持原样）
+        try:
+            from .prompt_tuner import prompt_tuner
+            system_prompt = prompt_tuner.get_template(
+                "extraction_system", EXTRACTION_SYSTEM_PROMPT_ZH, text=text
+            )
+        except Exception:
+            system_prompt = EXTRACTION_SYSTEM_PROMPT_ZH
+
         messages = [
             {
                 "role": "system",
-                "content": """你是一个专业的事实提取助手。你的任务是从给定文本中准确提取关键事实信息，并以结构化字段输出，便于后续一致性/冲突检测。
-
-提取原则：
-1. 提取完整事实，避免碎片化：将紧密相关的信息合并成一条完整事实。
-2. 去除重复：如果一个完整事实已包含元素（人名、机构名、地点），不要再单独提取这些元素。
-3. 识别可验证性：
-   - verifiable_type: "public" → 可通过公开信息验证（历史事件、机构、人物、已发布政策/指南）
-   - verifiable_type: "internal" → 内部数据/上下文相关（未公开的营收、内部项目日期、流程状态）
-4. 结构化字段：尽量填写以下字段以支持后续检测：
-   - subject（主体，谁/哪个项目/哪个机构）
-   - predicate（谓词/关系，如“完成”、“符合”、“安排”、“投资额为”）
-   - object（客体/目标，如“居民协调”、“新版指南”、“预约系统”）
-   - value（数值或文本值，若涉及比例/金额/数量请保留原单位在 modifiers.units）
-   - modifiers（字典，可包含 units、scope、condition 等说明）
-   - time（规范化日期或时间范围，如 2026-03-20、2026年3月底）
-   - polarity（"affirmative"/"negative"，肯定或否定陈述）
-
-输出要求：
-- 必须返回有效的 JSON 数组
-- 每个事实必须包含 original_text（原文引用）与 confidence（0-1）
-- 字段尽量完整，但不要编造不存在的信息"""
+                "content": system_prompt
             },
             {
                 "role": "user",
                 "content": prompt
             }
         ]
-        
+
         try:
             response = await self.chat(messages, temperature=0.1)
             facts = self._parse_facts_response(response, section_title, section_index)
@@ -169,6 +181,20 @@ class LLMClient:
         keywords = ", ".join(hints.get("keywords", [])[:10])
         units = ", ".join(hints.get("units", [])[:6])
         times = ", ".join(hints.get("time_phrases", [])[:6])
+
+        # 英文文档使用英文模板（占位符与输出格式和中文版一致），中文文档走下面的原模板
+        try:
+            from .prompt_tuner import prompt_tuner, PROMPT_TEMPLATES_EN
+            if prompt_tuner.detect_language(text) == "en":
+                return PROMPT_TEMPLATES_EN["extraction_user"].format(
+                    section_title=section_title if section_title else "Unknown",
+                    text=text,
+                    keywords=keywords if keywords else "(no obvious keywords)",
+                    units=units if units else "(no obvious units detected)",
+                    times=times if times else "(no obvious time phrases detected)",
+                )
+        except Exception:
+            pass
 
         return f"""请从以下文本中提取关键事实信息，并以结构化字段输出。
 

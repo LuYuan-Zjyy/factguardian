@@ -206,7 +206,10 @@ class FactVerifier:
         
         # If no good structured query, fall back to LLM query generation
         if not search_query:
-            query_prompt = QUERY_GENERATION_PROMPT.format(
+            query_template = prompt_tuner.get_template(
+                "query_generation", QUERY_GENERATION_PROMPT, text=content
+            )
+            query_prompt = query_template.format(
                 fact_content=content,
                 context=context,
                 subject=(fact.get("subject") or ""),
@@ -225,8 +228,11 @@ class FactVerifier:
         search_results = await self.search_client.search(search_query, max_results=3)
         search_text = "\n\n".join(search_results)
         
-        # Step 3: Verify with LLM (simplified prompt)
-        verify_prompt = VERIFICATION_PROMPT_TEMPLATE.format(
+        # Step 3: Verify with LLM (simplified prompt; English facts use the English template)
+        verify_template = prompt_tuner.get_template(
+            "verification", VERIFICATION_PROMPT_TEMPLATE, text=content
+        )
+        verify_prompt = verify_template.format(
             claim=content,
             context=context,
             search_results=search_text
