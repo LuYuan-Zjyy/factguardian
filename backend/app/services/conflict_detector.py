@@ -11,6 +11,7 @@ from typing import List, Dict, Any, Optional, Tuple, Set
 from itertools import combinations
 
 from .llm_client import llm_client
+from .prompt_tuner import prompt_tuner
 from .redis_client import redis_client
 from .lsh_filter import lsh_filter
 from .progress_manager import progress_manager, ProgressStage
@@ -539,8 +540,12 @@ class ConflictDetector:
         if not self.llm.is_available():
             raise ValueError("LLM 服务不可用")
         
-        # 构建提示词
-        prompt = CONFLICT_DETECTION_PROMPT.format(
+        # 构建提示词（按事实文本语言选择模板：英文事实用英文模板，中文保持原样）
+        facts_text = (fact_a.get("content", "") + " " + fact_b.get("content", ""))
+        prompt_template = prompt_tuner.get_template(
+            "conflict", CONFLICT_DETECTION_PROMPT, text=facts_text
+        )
+        prompt = prompt_template.format(
             fact_a_content=fact_a.get("content", ""),
             fact_a_type=fact_a.get("type", "未知"),
             fact_a_subject=fact_a.get("subject", ""),
@@ -563,10 +568,15 @@ class ConflictDetector:
             fact_b_location=self._format_location(fact_b.get("location"))
         )
         
+        system_prompt = prompt_tuner.get_template(
+            "conflict_system",
+            "你是一个专业的文档审核助手，擅长发现文档中的事实冲突和逻辑矛盾。请准确判断两个事实是否存在冲突，避免误报。",
+            text=facts_text,
+        )
         messages = [
             {
                 "role": "system",
-                "content": "你是一个专业的文档审核助手，擅长发现文档中的事实冲突和逻辑矛盾。请准确判断两个事实是否存在冲突，避免误报。"
+                "content": system_prompt
             },
             {
                 "role": "user",
